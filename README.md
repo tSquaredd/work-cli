@@ -143,10 +143,6 @@ work update
 
 A notification shows automatically when a new version is available.
 
-### License
-
-MIT
-
 </details>
 
 <details>
@@ -243,10 +239,6 @@ A herald shall announce when newer versions await thee, appearing unbidden upon 
 *Exeunt DEVELOPER, pursued by a merge conflict.*
 
 *Fin.*
-
-### License
-
-MIT — Free as the air we breathe, given to all without restraint, as a sonnet cast upon the wind.
 
 </details>
 
@@ -381,12 +373,6 @@ work update
 
 Because we believe the best developer tools aren't just something you use once. They're something that grows with you.
 
-### Availability
-
-`work` is available today. For free. MIT license.
-
-*[thunderous applause]*
-
 Thank you. We think you're going to love it.
 
 </details>
@@ -475,10 +461,6 @@ work update
 
 Alerts you when a new run drops. You know the feeling — your favorite mold just got a new stamp and you're refreshing the shop page like it's DGPT coverage on a Sunday afternoon. Except this one's always in stock. And always free.
 
-### License
-
-MIT — Free like the best course you've ever played. The one with the creek on hole 4, the tunnel shot on 11, and the downhill bomber on 18 where you always go for it even when you shouldn't. Show up. Throw. Tell your friends.
-
 *May your trees be decoration, your gaps be wide, and your code ship as clean as a flat hyzer on a calm morning.*
 
 </details>
@@ -561,10 +543,6 @@ work update
 
 It tells you when new versions are available because OF COURSE IT DOES. This tool doesn't just solve problems, it ANTICIPATES them!
 
-### License
-
-MIT — Because something THIS INCREDIBLE deserves to be FREE! FOR EVERYONE! FOREVER!
-
 </details>
 
 <details>
@@ -635,10 +613,6 @@ work update
 
 It tells you when there's a new version. So it can do what `brew upgrade` already does. Neat.
 
-### License
-
-MIT — free. Which makes sense, because I'm not sure what you'd charge for this. I mean that as constructively as possible.
-
 </details>
 
 <details>
@@ -696,10 +670,6 @@ Worktrees go in `.worktrees/`. Build files get symlinked. Your main directory is
 ```bash
 work update
 ```
-
-### License
-
-MIT
 
 </details>
 
@@ -789,10 +759,10 @@ work update
 
 It tells you when there's a new version! Very thoughtful! Unlike some PEOPLE I know who never tell you when there's pizza in the break room!
 
-### License
-
-MIT — it's free! FREE! Like the samples at the food court! Except this one you can actually take home!
-
 *How YOU doin'?*
 
 </details>
+
+## License
+
+MIT
