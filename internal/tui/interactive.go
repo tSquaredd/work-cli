@@ -61,7 +61,7 @@ func RunInteractive(ws *workspace.Workspace) error {
 		}
 	}
 
-	return runNewTask(ws)
+	return RunNewTask(ws)
 }
 
 // runResume handles resuming an existing task.

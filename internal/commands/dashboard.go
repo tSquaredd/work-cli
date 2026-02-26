@@ -26,20 +26,25 @@ func newDashboardCmd() *cobra.Command {
 			}
 
 			svc := service.New(ws, tracker)
-			model := dashboard.New(svc)
 
-			p := tea.NewProgram(model, tea.WithAltScreen())
-			result, err := p.Run()
-			if err != nil {
-				return err
+			for {
+				model := dashboard.New(svc)
+				p := tea.NewProgram(model, tea.WithAltScreen())
+				result, err := p.Run()
+				if err != nil {
+					return err
+				}
+
+				m, ok := result.(dashboard.Model)
+				if !ok || !m.NewTaskRequested() {
+					return nil
+				}
+
+				// Run new task wizard outside alt-screen, spawn Claude in new window
+				_ = tui.RunNewTaskSpawn(ws)
+
+				// Loop back to dashboard
 			}
-
-			// If user pressed 'n', drop into the new task wizard
-			if m, ok := result.(dashboard.Model); ok && m.NewTaskRequested() {
-				return tui.RunNewTask(ws)
-			}
-
-			return nil
 		},
 	}
 }

@@ -19,14 +19,20 @@ type repoConfig struct {
 	BaseBranch string
 }
 
-// RunNewTask runs the multi-step new task wizard.
-// Exported so it can be called from the dashboard command.
+// RunNewTask runs the new task wizard and exec's Claude (replaces process).
 func RunNewTask(ws *workspace.Workspace) error {
-	return runNewTask(ws)
+	return newTaskWizard(ws, claude.Launch)
 }
 
-// runNewTask runs the multi-step new task wizard.
-func runNewTask(ws *workspace.Workspace) error {
+// RunNewTaskSpawn runs the new task wizard and spawns Claude in a new terminal
+// window, returning control to the caller.
+func RunNewTaskSpawn(ws *workspace.Workspace) error {
+	return newTaskWizard(ws, claude.SpawnInTab)
+}
+
+// newTaskWizard is the shared multi-step new task wizard.
+// The launch function determines how Claude is started (exec vs spawn in tab).
+func newTaskWizard(ws *workspace.Workspace, launch func(claude.LaunchConfig) error) error {
 	// Step 1: Pick repo(s)
 	repos, err := pickRepos(ws)
 	if err != nil {
@@ -123,7 +129,7 @@ func runNewTask(ws *workspace.Workspace) error {
 	fmt.Println(ui.Section("Launching Claude..."))
 	fmt.Println()
 
-	return claude.Launch(claude.LaunchConfig{
+	return launch(claude.LaunchConfig{
 		Workspace: ws,
 		TaskName:  taskName,
 		Dirs:      dirs,
