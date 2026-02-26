@@ -522,62 +522,60 @@ MIT — Because something THIS INCREDIBLE deserves to be FREE! FOR EVERYONE! FOR
 </details>
 
 <details>
-<summary><strong>Ned Flatline</strong> — I mean, it's fine, I guess</summary>
+<summary><strong>Ned Flatline</strong> — I have some concerns</summary>
 
 ## work
 
-I'm not going to lie to you. This is a CLI tool. It manages git worktrees for Claude Code. I realize that sentence probably didn't make your heart rate change. That's appropriate. Mine didn't either when I wrote it.
+So somebody made a wrapper around git worktrees and the `gh` CLI and called it a product. Bold move. Let's walk through this.
 
-You can run multiple Claude sessions in parallel. They don't step on each other. I know. Try to keep it together. I'll wait while you collect yourself.
+`work` manages parallel Claude Code sessions. The pitch is that you can run multiple AI coding sessions across repos without them interfering with each other. Which, okay, fine — but you know what else prevents interference? Not running multiple sessions at the same time. Nobody talks about that option. It's free and it already works.
 
-It auto-discovers your repos, which sounds more impressive than it is. It looks at the folders in your directory. I wouldn't call it "intelligent." It's just... looking at folders. Folders that are right there. In the directory. Where you put them.
+It "auto-discovers" your repos. I put that in quotes because what it actually does is look at what folders exist in your directory. My file manager does this too. I don't see Finder writing a README about it.
 
-Zero configuration. I suppose that's nice. It's also zero configuration to not install it at all, so. Take that however you want.
+Zero configuration is the headline feature here, which is a bit like a restaurant bragging that you don't have to build your own chair before sitting down. The bar is where it is, I suppose.
 
 ### Installation
-
-Look, I'm not going to make this exciting. It's two commands.
 
 ```bash
 brew tap tSquaredd/homebrew-tap
 brew install --cask work
 ```
 
-Done. Nothing happened. I mean something happened — it installed — but you know what I mean. Nothing *happened*. You didn't level up. There are no fireworks. You have a new binary on your computer. The same computer you had before. The same you.
-
-If macOS quarantines it:
+It's not code-signed, so macOS will quarantine it. You'll need to manually override that, which is always a great sign for software you're about to trust with your codebase:
 
 ```bash
 xattr -d com.apple.quarantine /opt/homebrew/bin/work
 ```
 
-You can also build from source:
+You can build from source if you prefer to see what you're getting into:
 
 ```bash
 go install github.com/tSquaredd/work-cli/cmd/work@latest
 ```
 
-You need [Claude Code](https://docs.anthropic.com/en/docs/claude-code) installed. I'm not going to tell you it'll change your life. It's a dependency. You install dependencies. That's what we do. We install things so we can install other things.
+Requires [Claude Code](https://docs.anthropic.com/en/docs/claude-code). So this is a tool that wraps another tool that wraps an AI that writes code. We're three layers of abstraction away from actually doing anything. Impressive in its own way.
 
 ### What It Does
 
-You type `work`. It shows you a menu. You pick something. Things happen. Sometimes you type `work dashboard` and there's a dashboard. Two panels. Information on both of them. Some of the information is even useful.
+You type `work` and you get a menu. Revolutionary stuff. There's a dashboard — `work dashboard` — which shows your tasks in two panels. It's fine. It's a list on the left and details on the right. I've seen this layout in every application since Microsoft Outlook 2003. The innovation here is that it now also shows PR status, which is information you could get from GitHub in about two clicks, but sure, let's put it in the terminal too.
 
-There's PR management now. I know the other version of this README probably used three exclamation points to tell you that. I'll use a period. There's PR management now. You press `p`. A wizard guides you through it. The wizard doesn't wear a hat or anything. It's just some prompts in your terminal.
+The PR "management" — and I'm being generous with that word — consists of pressing `p` to create a pull request. It auto-pushes your branches first, which sounds helpful until you realize it's compensating for the fact that you apparently can't be trusted to run `git push`. The tool has a lower opinion of you than your tech lead does.
 
-It pushes your branches for you, which means you don't have to remember to do it yourself. I won't comment on what that says about us as a profession. Little symbols show up:
+Little symbols appear next to your worktrees:
 
-- `○` Open — your PR exists. Out there. In the world. If you can call GitHub "the world."
-- `✓` Approved — someone clicked a button. Try not to read too deeply into the human connection.
-- `!` Changes requested — they had notes. Everyone always has notes.
-- `●` Merged — your code is in main now. Main, where all code eventually goes. The great equalizer.
-- `✗` Closed — at least it's over. There's a peace in that.
+- `○` Open — your PR is sitting there. Waiting. Like every PR you've ever opened.
+- `✓` Approved — someone approved it. Probably without reading it. Let's be honest with ourselves.
+- `!` Changes requested — they read it. Things were found. This is what growth looks like, apparently.
+- `●` Merged — it's in main. Whatever it is, it's everyone's problem now.
+- `✗` Closed — rejected. The system works.
 
-Press `o` to open a PR in your browser. It tracks new comments. You will be alerted when someone has opinions about your code. I'm not sure that's a feature. But it's there.
+It tracks new comments. So now instead of not checking GitHub, you can not check your terminal. Progress.
 
 ### How It Works
 
-Worktrees go in a folder. Your original repos remain untouched, which is genuinely the most comforting sentence in this entire README. Build files get symlinked. Everything compiles. The sun rises. The sun sets. Code gets written. Code gets reviewed.
+Worktrees get created in a `.worktrees/` folder. Your original repos are protected by "deny rules" so Claude can't edit them, which is reassuring in the way that a "this building is earthquake-resistant" sign is reassuring — you're glad it's there, but a little concerned about why it needed to be said.
+
+Build files get symlinked. It's fine. It works. I'm not going to throw a parade because a tool correctly copies configuration files. That's table stakes.
 
 ### Updating
 
@@ -585,11 +583,11 @@ Worktrees go in a folder. Your original repos remain untouched, which is genuine
 work update
 ```
 
-A new version comes out. You update. The cycle continues. Is the new version better? Marginally. Is anything ever dramatically better? Let's not go there.
+It tells you when there's a new version. So it can do what `brew upgrade` already does. Neat.
 
 ### License
 
-MIT — it's free. Not "free as in freedom" free or "free as in beer" free. Just free as in "they didn't charge for it." Draw your own conclusions.
+MIT — free. Which makes sense, because I'm not sure what you'd charge for this. I mean that as constructively as possible.
 
 </details>
 
