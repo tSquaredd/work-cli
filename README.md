@@ -148,6 +148,10 @@ MIT
 
 ## work — A Worktree Manager, Most Noble, for Claude Code
 
+### Act I — The Prologue
+
+*Enter DEVELOPER, weary, beset on all sides by merge conflicts*
+
 Hark! Lend me thine ear, good developer, for I bring tidings of `work` — a tool of surpassing craft that doth permit thee to run parallel Claude Code sessions across thy repositories, each kept in harmonious isolation, as players upon a stage who speak their lines yet never tread upon another's mark.
 
 Through the ancient art of [git worktrees](https://git-scm.com/docs/git-worktree), each task receiveth its own fair copy of the repository, set upon its own branch — a kingdom unto itself, where no commit shall war with another.
@@ -156,154 +160,274 @@ For tasks that span many repos, a single Claude session doth survey all, an all-
 
 **No configuration is required.** Like a faithful servant, it discovereth thy repos by scanning child directories unbidden.
 
-### Installation, or The Summoning
+### Act II — The Summoning
 
-#### Via the Homebrew Apothecary
+*DEVELOPER approaches the Homebrew Apothecary*
+
+#### Scene 1: Via Homebrew
 
 ```bash
 brew tap tSquaredd/homebrew-tap
 brew install --cask work
 ```
 
-Should macOS, that jealous gatekeeper, quarantine thy binary:
+Should macOS, that jealous gatekeeper, quarantine thy binary — O treachery most foul! — speak thus to break the seal:
 
 ```bash
 xattr -d com.apple.quarantine /opt/homebrew/bin/work    # For Silicon of Apple
 xattr -d com.apple.quarantine /usr/local/bin/work       # For Intel's elder forge
 ```
 
-#### From Source, Forged by Thine Own Hand
+#### Scene 2: From Source, Forged by Thine Own Hand
 
 ```bash
 go install github.com/tSquaredd/work-cli/cmd/work@latest
 ```
 
-**Thou must first possess**: [Claude Code](https://docs.anthropic.com/en/docs/claude-code), that learned companion (`npm install -g @anthropic-ai/claude-code`)
+**Thou must first possess**: [Claude Code](https://docs.anthropic.com/en/docs/claude-code), that learned companion, without whom all is silence upon the stage (`npm install -g @anthropic-ai/claude-code`)
 
-### The Commands, or Instruments of Action
+### Act III — The Instruments of Action
+
+*DEVELOPER takes the throne. A flourish of trumpets.*
 
 | Command | Its Purpose |
 |---------|-------------|
 | `work` | The interactive stage — resume a prior scene or begin anew |
 | `work dashboard` | A living tableau of all tasks, sessions, and petitions for review |
 | `work list` | Display all worktrees with their standing (PUSHED, UNPUSHED, DIRTY, or CLEAN) |
-| `work pr [task]` | Compose pull requests for thy task's worktrees |
+| `work pr [task]` | Compose pull requests — thy petition to the court of reviewers |
 | `work done` | Select worktrees for their final curtain (with fair warning ere unpushed work is lost) |
-| `work clean` | Sweep away all worktrees bearing no uncommitted changes |
-| `work <repo> <branch>` | A direct entrance — bypass the prologue entirely |
-| `work update` | Receive the latest verse from GitHub |
+| `work clean` | Sweep away all worktrees bearing no uncommitted changes, as a groundskeeper clearing the stage |
+| `work <repo> <branch>` | A direct entrance — bypass the prologue entirely, for those who know their part |
+| `work update` | Receive the latest verse from GitHub, that distant oracle |
 
-### The Dashboard, or The Great Theatre
+### Act IV — The Great Theatre (Dashboard)
 
-Press `p` to petition for review. Press `o` to open thy petition in the browser. The symbols tell the tale:
+*The curtain rises on a two-panel stage*
 
-- `○` The petition awaits judgement
-- `✓` Approved! The crowd doth cheer
-- `!` Changes requested — back to the writing desk
-- `●` Merged — the deed is done
-- `✗` Closed — alas, 'twas not to be
+Press `p` to petition for review — thy code laid bare before the judgement of thy peers. Press `o` to open thy petition in the browser, that window unto the world. The symbols tell the tale:
 
-### How This Wonder Worketh
+- `○` The petition awaiteth judgement — *patience, good developer*
+- `✓` Approved! The crowd doth rise and cheer! *O happy day!*
+- `!` Changes requested — *back to the writing desk, thou art not yet done*
+- `●` Merged — the deed is done, thy code immortalized in main
+- `✗` Closed — *alas, poor pull request! I knew it, Horatio*
+
+And lo, shouldst new comments appear upon thy petition, their count shall glow in amber warning, that thou might attend to thy reviewers' counsel with haste.
+
+### Act V — The Mechanics of This Wonder
+
+*Aside, to the audience*
 
 - Each task receiveth a worktree at `<workspace>/.worktrees/<task-name>/<repo>/`
-- These worktrees dwell apart from the original repos, protected by deny rules most strict
+- These worktrees dwell apart from the original repos, protected by deny rules most strict — as castle walls that guard the kingdom within
 - Thy main working directory remaineth untouched, pure as new-fallen snow
-- Build configuration files are symlinked, as servants attending their master
+- Build configuration files are symlinked, as servants attending their master through secret passages
 
-### To Update
+### Epilogue
 
 ```bash
 work update
 ```
 
-A herald shall announce when newer versions await thee.
+A herald shall announce when newer versions await thee, appearing unbidden upon thy terminal as a ghost upon the battlements.
 
-*Exeunt, pursued by a merge conflict.*
+*Exeunt DEVELOPER, pursued by a merge conflict.*
+
+*Fin.*
 
 ### License
 
-MIT — Free as the air we breathe, given to all without restraint.
+MIT — Free as the air we breathe, given to all without restraint, as a sonnet cast upon the wind.
 
 </details>
 
 <details>
-<summary><strong>The Salty Sea Dog</strong> — *hic* ...where was I?</summary>
+<summary><strong>The Free Spirit</strong> — Like, the code just flows through you, man</summary>
 
-## work — *hic* — Claude Code Worktree... Worktree Managerer
+## work — A Worktree Manager for Claude Code, in Harmony with the Universe
 
-AHOY YE SCALLYWAGS!! *knocks over rum bottle* Lemme tell ye about `work`... best tool I ever... wait where was I... RIGHT! It lets ye run a whole FLEET of Claude Code sessions across yer repos an' they don't crash into each other! Like ships in the night! Ships... with [git worktrees](https://git-scm.com/docs/git-worktree)! Every task gets its own copy of the repo on its own branch an' NOBODY gets hurt!
+Hey there, beautiful soul. Take a deep breath. Center yourself. Now... imagine a world where your code sessions exist in perfect balance. No conflicts. No chaos. Just pure, parallel harmony.
 
-Got multiple repos? ONE Claude to rule 'em all, matey. One captain, many ships. *takes another swig*
+That's `work`.
 
-Zero configuration! It finds yer repos all by itself! Like a parrot that can... find... repos. LOOK I'm very drunk but this tool is LEGITIMATE.
+It uses [git worktrees](https://git-scm.com/docs/git-worktree) — which, if you think about it, are really just the universe's way of letting your code exist in multiple dimensions simultaneously. Each task gets its own branch, its own space, its own *energy*. And they coexist peacefully, man. Like trees in a forest. Actually, they literally are trees. Worktrees. It's all connected.
 
-### Installin' This Beauty
+For multi-repo tasks, one Claude session holds space for all of them. One consciousness, many repos. We're all one, you know?
 
-#### Homebrew (the GOOD kind, not the... well actually also the good kind)
+Zero configuration. It discovers your repos organically, the way nature intended.
+
+### Manifesting Your Installation
+
+#### Through the Homebrew Collective
 
 ```bash
 brew tap tSquaredd/homebrew-tap
 brew install --cask work
 ```
 
-macOS might get all suspicious-like, the paranoid bilge rat:
+If macOS blocks your path — and isn't that just like the system, man — release the quarantine energy:
 
 ```bash
-xattr -d com.apple.quarantine /opt/homebrew/bin/work    # Apple Silicon (fancy)
-xattr -d com.apple.quarantine /usr/local/bin/work       # Intel (still good, still good)
+xattr -d com.apple.quarantine /opt/homebrew/bin/work    # Apple Silicon
+xattr -d com.apple.quarantine /usr/local/bin/work       # Intel
 ```
 
-#### Build It Yerself (fer the ambitious types)
+#### Growing It From Source (So Rewarding)
 
 ```bash
 go install github.com/tSquaredd/work-cli/cmd/work@latest
 ```
 
-**Ye need**: [Claude Code](https://docs.anthropic.com/en/docs/claude-code) — `npm install -g @anthropic-ai/claude-code` — DON'T FORGET THIS or nothin' works an' you'll be sad an' sober
+**You'll also want**: [Claude Code](https://docs.anthropic.com/en/docs/claude-code) — your AI companion on this journey (`npm install -g @anthropic-ai/claude-code`)
 
-### Commands (try to remember these in the mornin')
+### The Pathways (Commands)
 
-| Command | What it does... I think |
+| Pathway | Where It Leads |
 |---------|-------------|
-| `work` | The main thing! Pick up where ye left off or start fresh |
-| `work dashboard` | A BIG FANCY SCREEN with all yer tasks an' PRs an' everythin' |
-| `work list` | Shows all yer worktrees — PUSHED, UNPUSHED, DIRTY... just like me crew |
-| `work pr [task]` | Make pull requests! Without even openin' a browser! MAGIC! |
-| `work done` | Clean up when yer done — careful with the unpushed stuff though |
-| `work clean` | Throws overboard anythin' that's already been committed |
-| `work <repo> <branch>` | Skip all the fancy stuff, just GO |
-| `work update` | Get the newest version... like gettin' a new ship but keepin' yer crew |
+| `work` | The crossroads — continue your journey or begin a new one |
+| `work dashboard` | Your meditation space — a real-time visualization of all your creative energy |
+| `work list` | Reflect on the state of your worktrees — PUSHED, UNPUSHED, DIRTY, or at peace (CLEAN) |
+| `work pr [task]` | Send your creation out into the world for collective feedback |
+| `work done` | Release a task back into the void with gratitude |
+| `work clean` | Let go of what no longer serves you |
+| `work <repo> <branch>` | Skip the ceremony, follow your intuition directly |
+| `work update` | Receive the latest wisdom from the upstream collective |
 
-### The Dashboard, She's a Beaut
+### The Dashboard (Your Sacred Space)
 
-The dashboard has all these fancy symbols fer yer PRs:
+The dashboard radiates the energy of your pull requests through sacred symbols:
 
-- `○` Open — waitin' fer someone to look at yer code... *stares at ocean*
-- `✓` Approved — THEY LIKE IT!! ANOTHER ROUND!!
-- `!` Changes requested — aw barnacles
-- `●` Merged — INTO THE MAIN BRANCH SHE GOES! *fires cannon*
-- `✗` Closed — we don't talk about that one
+- `○` Open — your offering has been placed upon the altar, awaiting the community's gaze
+- `✓` Approved — the circle has blessed your contribution. Namaste
+- `!` Changes requested — a gentle nudge from the universe to refine your craft
+- `●` Merged — your code has become one with the main branch. You are the main branch. We all are
+- `✗` Closed — every ending is a new beginning, friend
 
-Press `p` to make a PR! Press `o` to open it in yer browser! It even PUSHES yer branches fer ye because it knows yer too... busy... to remember!
+Press `p` to share your work with the community. Press `o` to visit your offering in the browser. It even pushes your branches for you, because `work` believes in supporting your journey, not burdening it.
 
-### How's It Work (I'll try to explain, no promises)
+### The Way It Flows
 
-- Every task gets a worktree at... at... `<workspace>/.worktrees/<task-name>/<repo>/` THERE I remembered
-- The worktrees are SEPARATE from yer real repos so Claude can't mess up yer main stuff
-- Build files get symlinked which is like... a portal? A portal fer files?
-- Yer main directory NEVER gets touched. Unlike my rum. Which gets touched CONSTANTLY.
+- Each task grows its own worktree at `<workspace>/.worktrees/<task-name>/<repo>/`
+- The worktrees exist separately from the original repos — healthy boundaries are important, even in code
+- Your main directory remains in its natural, untouched state
+- Build files are symlinked — connected yet independent, like all of us
 
-### Updatin'
+### Renewal
 
 ```bash
 work update
 ```
 
-It'll tell ye when there's a new version. Unlike me first mate who NEVER tells me ANYTHIN'.
+Growth is a continuous process. The tool lets you know when a new version is ready to emerge.
 
 ### License
 
-MIT — Free as the seven seas, matey! *falls off chair*
+MIT — Because knowledge, like love, should be free.
+
+Peace. :v:
+
+</details>
+
+<details>
+<summary><strong>The Ballad</strong> — Sing along if you know the words</summary>
+
+## The Ballad of `work`
+
+### :musical_note: Verse 1
+
+*Well I woke up this morning with repos on my mind,*
+*Had branches all conflicting, of every shape and kind,*
+*I needed parallel sessions but they kept stepping on their toes,*
+*Then I found a little CLI and this is how it goes...*
+
+### :musical_note: Chorus
+
+*Oh, `work`! Sweet `work`!*
+*With your worktrees standing tall,*
+*You give each task its own little branch,*
+*And isolation for them all!*
+*Oh, `work`! Sweet `work`!*
+*No configuration needed,*
+*You scan my directories on your own,*
+*My prayers have been heeded!*
+
+### :musical_note: Verse 2 — The Installation Ballad
+
+*Now if you want to join this song, the setup's pretty quick,*
+*Just tap and install with Homebrew, it's a mighty simple trick:*
+
+```bash
+brew tap tSquaredd/homebrew-tap
+brew install --cask work
+```
+
+*But if macOS gives you trouble, don't you shed a single tear,*
+*Just clear that quarantine away and let the music clear:*
+
+```bash
+xattr -d com.apple.quarantine /opt/homebrew/bin/work
+```
+
+*Or build it from the source yourself, for those who like to craft:*
+
+```bash
+go install github.com/tSquaredd/work-cli/cmd/work@latest
+```
+
+*But don't forget your [Claude Code](https://docs.anthropic.com/en/docs/claude-code), friend, or you'll be up the mast!*
+
+### :musical_note: Chorus (reprise)
+
+*Oh, `work`! Sweet `work`!...*
+
+### :musical_note: Verse 3 — The Commands
+
+*Now let me sing the commands to you, each one a little gem,*
+*Just type `work` to start it up, it's the finest of all them!*
+
+*The `dashboard` shows your tasks alive, with PRs gleaming bright,*
+*And `list` will show your worktrees, from DIRTY through to right,*
+*Type `pr` to make a pull request without a browser tab,*
+*And `done` will tear things down for you — don't worry, it won't grab*
+*A single branch that's unpushed, no sir, it warns you first,*
+*And `clean` sweeps up the tidy ones to quench your cleanup thirst!*
+
+### :musical_note: Bridge — The Dashboard
+
+*Now the dashboard, oh the dashboard, it's a sight to make you weep,*
+*Two panels showing everything while your sessions run so deep,*
+*A circle means it's open, and a checkmark means approved,*
+*An exclamation? Changes wanted — but your spirit won't be moved!*
+*A purple dot means merged, my friend, your code's in main at last,*
+*And if you see that little x... well... let's not dwell on the past.*
+
+*Press `p` to make a PR, press `o` to see it bloom,*
+*Press `r` to resume a session, there's always enough room,*
+*Press `n` to start a new task and `c` to clean your plate,*
+*Press `d` to see the diff, and `a` to find your mate!*
+
+### :musical_note: Verse 4 — How It Works
+
+*Your worktrees live in `.worktrees/`, each task has got a home,*
+*Deny rules guard the originals so Claude won't freely roam,*
+*Your build files all get symlinked, and your main dir stays pristine,*
+*It's the finest code arrangement that these eyes have ever seen!*
+
+### :musical_note: Outro
+
+*So if your branches tangle and your sessions start to fight,*
+*Just `work update` and carry on, everything will be alright,*
+*For `work` will keep on spinning up those worktrees one by one,*
+*Until the last commit is pushed...*
+
+*And the merge... is... done.*
+
+:musical_note: :musical_note: :musical_note:
+
+### License
+
+*MIT — free for you, and free for me, from sea to shining sea!*
 
 </details>
 
