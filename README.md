@@ -373,99 +373,66 @@ Thank you. We think you're going to love it.
 </details>
 
 <details>
-<summary><strong>The Chain Banger</strong> — Crush your round, birdie every hole</summary>
+<summary><strong>The Chain Banger</strong> — Grip it, rip it, ship it</summary>
 
-## work — The Disc Golf Approach to Claude Code Session Management
+## work
 
-### Teeing Off
+Look, I'm going to be honest with you. I was mass-producing spaghetti code across three repos, branches tangled like headphone cables at the bottom of my disc bag, merge conflicts stacking up worse than a backup on hole 7 when the group ahead is putting with Bergs from 80 feet out. One by one. Into the wind.
 
-You know that feeling when you step up to hole 1, bag loaded, disc selection dialed in, and the fairway is wide open? That's what `work` feels like every time you open your terminal.
+Then I found `work` and it was like switching from a base-plastic Groove to a seasoned Halo Destroyer. Same arm. Completely different game.
 
-`work` is a worktree manager for Claude Code. Think of your workspace as the course, your repos as the holes, and each task as a round. With [git worktrees](https://git-scm.com/docs/git-worktree), every task gets its own disc — its own branch, its own isolated copy of the repo — so you can throw multiple rounds simultaneously without your discs ever colliding mid-fairway.
+`work` gives every task its own worktree — its own isolated branch, its own copy of the repo, nothing interfering with anything else. It's the coding equivalent of having the whole course to yourself on a Tuesday morning. No waiting. No distractions. Just clean lines and confident throws.
 
-Multi-repo tasks? One Claude session reads all the repos at once. It's like having a caddy who knows the line on every single hole across multiple courses. Simultaneously.
+Got multiple repos? One Claude session sees all of them. It's like that buddy who somehow knows the line on every hole at every course within 50 miles. Except this buddy also writes your code.
 
-Zero configuration. `work` walks the course for you and finds all the baskets automatically. You just throw.
-
-### Bagging Up (Installation)
-
-#### The Pro Shop (Homebrew)
+### Getting It In the Bag
 
 ```bash
 brew tap tSquaredd/homebrew-tap
 brew install --cask work
 ```
 
-If macOS puts your binary in the lost & found like a disc that rolled into the pond:
+If macOS quarantines it — and it will, because macOS treats unsigned binaries the way a headwind treats your understable fairway driver:
 
 ```bash
-xattr -d com.apple.quarantine /opt/homebrew/bin/work    # Apple Silicon
-xattr -d com.apple.quarantine /usr/local/bin/work       # Intel Mac
+xattr -d com.apple.quarantine /opt/homebrew/bin/work
 ```
 
-#### Field Work (Build from Source)
+You can also build from source (`go install github.com/tSquaredd/work-cli/cmd/work@latest`) if you're the type who field tests prototype plastic before it hits production. Respect.
 
-For the players who like to dye their own discs:
+You'll need [Claude Code](https://docs.anthropic.com/en/docs/claude-code) installed. That's your putter. You're not playing a round without a putter.
 
-```bash
-go install github.com/tSquaredd/work-cli/cmd/work@latest
-```
+### Throwing a Round
 
-**Essential gear**: [Claude Code](https://docs.anthropic.com/en/docs/claude-code) — you wouldn't show up to a tournament without a putter (`npm install -g @anthropic-ai/claude-code`)
+`work` by itself drops you at the first tee pad — pick up where you left off or start fresh. `work dashboard` is the move though. Live leaderboard. Every task, every session, every PR, all right there. Two panels. It's like UDisc Live but for your codebase.
 
-### The Scorecard (Commands)
+The dashboard now shows PR status right on each worktree, because nothing is more frustrating than parking your approach 10 feet out and having nobody see it. Little indicators tell you what's up:
 
-| Shot | What It Does |
-|------|-------------|
-| `work` | Step up to the tee pad — pick up a round in progress or start a fresh one |
-| `work dashboard` | The live leaderboard — every task, every session, every PR status at a glance |
-| `work list` | Check the lie on all your worktrees — PUSHED (parked it), UNPUSHED (still in the fairway), DIRTY (in the rough), CLEAN (haven't thrown yet) |
-| `work pr [task]` | Send your disc to the basket — create pull requests right from the tee box |
-| `work done` | Pick up your disc and move on — tear down worktrees when the round is over |
-| `work clean` | Clear the course — auto-remove worktrees that are already parked and chained |
-| `work <repo> <branch>` | Grip it and rip it — skip the warm-up, throw immediately |
-| `work update` | New plastic — grab the latest release, same reliable flight path |
+- `○` Out for review — disc is in the air, looking good
+- `✓` Approved — nothing but chains. Walk-up birdie.
+- `!` Changes requested — caught cage. Kick-out. Gotta step up for the comebacker.
+- `●` Merged — in the basket. Sign the card. Move on.
+- `✗` Closed — O.B. It happens to everyone. Even McBeth shanks one now and then.
 
-### The Leaderboard (Dashboard)
+Press `p` to create a PR and `o` to open one in your browser. The tool auto-pushes your branches first because it knows you forgot. Like a caddy who hands you the right disc before you even reach into the bag.
 
-The dashboard is your tournament central. Two panels. Real-time. Every throw tracked.
+### How It Plays
 
-And now it has PR status built right in — because what good is parking your approach shot if nobody sees the scorecard?
+Each task gets its own worktree tucked away in `.worktrees/`. Your original repos are untouchable — `work` sets up deny rules so Claude can't edit them, like O.B. stakes that actually work. Build config files get symlinked so everything just runs. Your main directory stays clean. Tournament ready at all times.
 
-- `○` **Open** — disc is in the air. Waiting for it to land.
-- `✓` **Approved** — CHAINED IT. Dead center. Nothing but chains.
-- `!` **Changes requested** — caught the cage. Good look, but you need a comeback putt.
-- `●` **Merged** — in the basket. Birdie. Maybe eagle. The card is signed.
-- `✗` **Closed** — O.B. It happens. Re-tee and move on.
-
-New comments glow in warning color — like a spotter yelling "NICE!" from across the fairway. Or "LEFT!" You'll know which.
-
-Press `p` to create a PR — it's like calling your shot. It pushes your branches (gets the disc to the circle), walks you through title and description (marking your lie), and creates PRs across all your repos in one fluid motion. A full send.
-
-Press `o` to open your PR in the browser. `work` marks it as viewed, like tapping your mini marker down. You've acknowledged the lie. Time to putt.
-
-All PR features degrade gracefully without `gh` installed — like playing a casual round without keeping score. The course is still there, still fun.
-
-### Course Layout (How It Works)
-
-- **The fairways**: Each task gets its own worktree at `<workspace>/.worktrees/<task-name>/<repo>/` — every hole is its own fairway, no shared rough
-- **O.B. stakes**: Deny rules block Claude from editing original repo paths — your bag stays in the cart, the worktree is what's in play
-- **The practice green**: Your main working directory is never touched. It stays pristine. Tournament ready.
-- **Preferred lies**: Build files (`local.properties`, `.env*`) are symlinked automatically — like winter rules, the tool gives you the best possible position
-
-### Staying on the Card
+### New Plastic
 
 ```bash
 work update
 ```
 
-`work` lets you know when a new version drops. Like finding out your favorite mold just got a new run — you're going to want to bag it immediately.
+Alerts you when a new version drops. You know the feeling — new run of your favorite mold just hit the shelves and you need to bag it before it sells out. Except this one's always in stock. And free.
 
 ### License
 
-MIT — Free as a disc golf course in a public park. Show up. Throw. No greens fees. Ever.
+MIT — Free like a public course. Show up. Throw. Tell your friends.
 
-*Now get out there and birdie every hole.*
+*May all your putts be inside the circle and all your merge conflicts be fast-forwards.*
 
 </details>
 
