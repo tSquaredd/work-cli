@@ -3,7 +3,7 @@
 Choose your preferred reading experience:
 
 <details>
-<summary><strong>Joe Friday</strong> — Just the facts, no nonsense</summary>
+<summary><strong>Dan Readme</strong> — Just the facts, no nonsense</summary>
 
 ## work — Claude Code Worktree Manager
 
@@ -144,7 +144,7 @@ MIT
 </details>
 
 <details>
-<summary><strong>William Shakespeare</strong> — Forsooth, a README most noble</summary>
+<summary><strong>Bill Quillsworth</strong> — Forsooth, a README most noble</summary>
 
 ## work — A Worktree Manager, Most Noble, for Claude Code
 
@@ -437,7 +437,7 @@ MIT — Free like a public course. Show up. Throw. Tell your friends.
 </details>
 
 <details>
-<summary><strong>Steve Ballmer</strong> — I LITERALLY CANNOT CONTAIN MYSELF</summary>
+<summary><strong>Chip Thunderson</strong> — I LITERALLY CANNOT CONTAIN MYSELF</summary>
 
 ## work — THE MOST REVOLUTIONARY WORKTREE MANAGER IN THE HISTORY OF SOFTWARE DEVELOPMENT AND POSSIBLY THE UNIVERSE
 
@@ -522,48 +522,62 @@ MIT — Because something THIS INCREDIBLE deserves to be FREE! FOR EVERYONE! FOR
 </details>
 
 <details>
-<summary><strong>Ben Stein</strong> — Let's not get carried away here</summary>
+<summary><strong>Ned Flatline</strong> — I mean, it's fine, I guess</summary>
 
 ## work
 
-Okay, so, I don't want to oversell this. It's a CLI tool. It manages git worktrees for Claude Code. That's... basically it. I know, I know, try to contain yourselves.
+I'm not going to lie to you. This is a CLI tool. It manages git worktrees for Claude Code. I realize that sentence probably didn't make your heart rate change. That's appropriate. Mine didn't either when I wrote it.
 
-You can run multiple Claude sessions at the same time without them messing each other up. Which, to be fair, is something you could also achieve by just being more careful. But sure, this is fine too.
+You can run multiple Claude sessions in parallel. They don't step on each other. I know. Try to keep it together. I'll wait while you collect yourself.
 
-It auto-discovers your repos. That sounds fancy but it really just looks at what folders are in your directory. It's not exactly artificial intelligence. Well, actually, Claude is involved, so I guess technically — no, never mind. Let's move on.
+It auto-discovers your repos, which sounds more impressive than it is. It looks at the folders in your directory. I wouldn't call it "intelligent." It's just... looking at folders. Folders that are right there. In the directory. Where you put them.
+
+Zero configuration. I suppose that's nice. It's also zero configuration to not install it at all, so. Take that however you want.
 
 ### Installation
+
+Look, I'm not going to make this exciting. It's two commands.
 
 ```bash
 brew tap tSquaredd/homebrew-tap
 brew install --cask work
 ```
 
-That's it. It's not a big deal. Homebrew does all the work. You could also build from source if you want to feel like you accomplished something today:
+Done. Nothing happened. I mean something happened — it installed — but you know what I mean. Nothing *happened*. You didn't level up. There are no fireworks. You have a new binary on your computer. The same computer you had before. The same you.
+
+If macOS quarantines it:
+
+```bash
+xattr -d com.apple.quarantine /opt/homebrew/bin/work
+```
+
+You can also build from source:
 
 ```bash
 go install github.com/tSquaredd/work-cli/cmd/work@latest
 ```
 
-You need Claude Code installed. If you don't have it, this tool is just a fancy way to create git branches. Which, honestly, `git checkout -b` already does. But sure.
+You need [Claude Code](https://docs.anthropic.com/en/docs/claude-code) installed. I'm not going to tell you it'll change your life. It's a dependency. You install dependencies. That's what we do. We install things so we can install other things.
 
 ### What It Does
 
-Type `work` and it asks if you want to resume something or start fresh. There's a `dashboard` that shows your tasks in two panels. It's... a dashboard. It has panels. The left one has a list, the right one has details. I'm not going to pretend this is groundbreaking UI design.
+You type `work`. It shows you a menu. You pick something. Things happen. Sometimes you type `work dashboard` and there's a dashboard. Two panels. Information on both of them. Some of the information is even useful.
 
-There's PR management now. You press `p` and it walks you through making a pull request. It pushes your branches for you first, which is nice I suppose, though one could argue it's enabling bad habits. Little icons show up next to your worktrees:
+There's PR management now. I know the other version of this README probably used three exclamation points to tell you that. I'll use a period. There's PR management now. You press `p`. A wizard guides you through it. The wizard doesn't wear a hat or anything. It's just some prompts in your terminal.
 
-- `○` Open — someone might look at your code eventually
-- `✓` Approved — they said it's fine. Don't read too much into it, they might have been in a hurry
-- `!` Changes requested — don't take it personally. Okay, take it a little personally
-- `●` Merged — congratulations, your code is now everyone's problem
-- `✗` Closed — it's not rejection, it's... no, it's rejection
+It pushes your branches for you, which means you don't have to remember to do it yourself. I won't comment on what that says about us as a profession. Little symbols show up:
 
-Press `o` to open a PR in your browser. It keeps track of comments so you know when there are new ones. Whether that's a feature or a source of anxiety depends on your team.
+- `○` Open — your PR exists. Out there. In the world. If you can call GitHub "the world."
+- `✓` Approved — someone clicked a button. Try not to read too deeply into the human connection.
+- `!` Changes requested — they had notes. Everyone always has notes.
+- `●` Merged — your code is in main now. Main, where all code eventually goes. The great equalizer.
+- `✗` Closed — at least it's over. There's a peace in that.
+
+Press `o` to open a PR in your browser. It tracks new comments. You will be alerted when someone has opinions about your code. I'm not sure that's a feature. But it's there.
 
 ### How It Works
 
-Worktrees go in `.worktrees/`. Your original repos don't get touched, which is probably the most useful thing about this whole operation if we're being honest. Build files get symlinked so things still compile. It's fine. It works.
+Worktrees go in a folder. Your original repos remain untouched, which is genuinely the most comforting sentence in this entire README. Build files get symlinked. Everything compiles. The sun rises. The sun sets. Code gets written. Code gets reviewed.
 
 ### Updating
 
@@ -571,16 +585,16 @@ Worktrees go in `.worktrees/`. Your original repos don't get touched, which is p
 work update
 ```
 
-It lets you know when there's a new version. Incrementally less disappointing each time, presumably.
+A new version comes out. You update. The cycle continues. Is the new version better? Marginally. Is anything ever dramatically better? Let's not go there.
 
 ### License
 
-MIT — free, which, given everything I've just described, feels about right.
+MIT — it's free. Not "free as in freedom" free or "free as in beer" free. Just free as in "they didn't charge for it." Draw your own conclusions.
 
 </details>
 
 <details>
-<summary><strong>Albert Camus</strong> — It's a tool. It exists. Whatever.</summary>
+<summary><strong>Gary Beige</strong> — It's a tool. It exists. Whatever.</summary>
 
 ## work
 
