@@ -657,3 +657,92 @@ work update
 MIT
 
 </details>
+
+<details>
+<summary><strong>Joey Codiani</strong> — Sup with the whack README, sup!</summary>
+
+## work — How YOU doin', developer?
+
+Okay okay okay, so check it, right? You ever been coding, and you got like, a bunch of repos — and they're all like, *right there* — and you're trying to do stuff in all of em at the same time but they keep like, bumping into each other? It's whack!
+
+So my boy `work` over here, he's like — yo, I got you. He uses these things called [git worktrees](https://git-scm.com/docs/git-worktree) which are like — okay, you know when you got a sandwich, right, and you don't want your meatball sub touching your turkey club? So you put em in separate bags? It's like that but for code. Each task gets its own bag. Its own branch. Its own whole situation.
+
+And if you're working across like, multiple repos? ONE Claude session sees everything, dude. It's like having the smartest guy in the room, except the room is all the rooms. You know what I'm saying? ...Yeah, me neither, but it works!
+
+Zero configuration, bro. It just FINDS your repos. It's like a code bloodhound or whatever. You don't gotta do nothin'. Just show up.
+
+### Gettin' Set Up (It's Easy, I Did It, and I'm ME)
+
+Alright so you do this Homebrew thing — no, not like actual beer, it's a computer thing. Trust me, I was confused too:
+
+```bash
+brew tap tSquaredd/homebrew-tap
+brew install --cask work
+```
+
+BOOM. Done. That's it. Could I BE any more installed right now?
+
+If your Mac gets all weird about it:
+
+```bash
+xattr -d com.apple.quarantine /opt/homebrew/bin/work
+```
+
+Or if you wanna build it yourself — which, respect, that's very like... crafty:
+
+```bash
+go install github.com/tSquaredd/work-cli/cmd/work@latest
+```
+
+You also need this [Claude Code](https://docs.anthropic.com/en/docs/claude-code) thing. `npm install -g @anthropic-ai/claude-code`. Don't ask me what npm stands for. I asked once and the answer made me tired.
+
+### What's Up With All The Commands, Sup
+
+| Command | The Deal |
+|---------|-------------|
+| `work` | This is the big one! The main event! You start here and it's like, "what do you wanna do?" and you pick! |
+| `work dashboard` | Dude. DUDE. It's like a mission control but on your computer. Everything's right there. Tasks. Sessions. PR stuff. |
+| `work list` | Shows you all your worktrees and whether they're like, pushed or dirty or whatever. It's very informative. |
+| `work pr [task]` | Makes pull requests without even opening your browser! Which is good because I got a LOT of tabs open. A lot. |
+| `work done` | Cleans up when you're done. It's polite about it too, it asks first if you got unsaved stuff. Very classy. |
+| `work clean` | This one's like a Roomba but for your code. Scoops up all the clean worktrees. Efficient. |
+| `work <repo> <branch>` | Skip the whole menu, just GO. For when you know what you want. Like ordering "the usual." |
+| `work update` | Gets you the new new. The latest version. Fresh out the oven. |
+
+### The Dashboard — This Is The Best Part, Seriously
+
+Okay so the dashboard, right? It's got two panels. Left side has your tasks, right side has the details. And now — and this is the part where I need you to sit down — it does PR stuff too!
+
+Little symbols pop up next to your worktrees:
+
+- `○` Open — your PR is out there! Living its life! Waiting for someone to notice it, like me at auditions!
+- `✓` Approved — THEY LIKE IT! THEY REALLY LIKE IT! That's a reference. I saw it in a movie. Or was it a show?
+- `!` Changes requested — okay so they had some notes. We've ALL gotten notes. It's fine. It's FINE.
+- `●` Merged — IN IT GOES, BABY! Your code is in the main thing! That's huge! That's like getting a callback!
+- `✗` Closed — hey, not every audition works out. You dust yourself off, you get back on the horse. The code horse.
+
+Press `p` and it makes PRs for you! It even pushes your branches first because it KNOWS you forgot! This tool gets me, man. Like on a personal level.
+
+Press `o` and the PR opens right in your browser! And it remembers which comments you already saw so you know when there's new ones! It's like having a really organized roommate! Which, let me tell you, I could USE!
+
+### How It Works — I'll Try To Explain
+
+So your worktrees go in this `.worktrees/` folder, right? And your REAL repos — the originals — they don't get touched. At all. It's like a stunt double for your code. The stunt double takes all the hits, the original stays looking fresh.
+
+Build files get symlinked, which — okay I'm not gonna pretend I know exactly what that means but basically stuff that needs to be in two places is in two places without actually BEING in two places. It's like how I can be the most handsome guy in two different rooms. By standing in the doorway. ...That sounded better in my head.
+
+### Updating
+
+```bash
+work update
+```
+
+It tells you when there's a new version! Very thoughtful! Unlike some PEOPLE I know who never tell you when there's pizza in the break room!
+
+### License
+
+MIT — it's free! FREE! Like the samples at the food court! Except this one you can actually take home!
+
+*How YOU doin'?*
+
+</details>
