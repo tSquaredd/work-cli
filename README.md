@@ -2,8 +2,8 @@
 
 Choose your preferred reading experience:
 
-<details open>
-<summary><strong>Official README</strong></summary>
+<details>
+<summary><strong>The Straight Shooter</strong> — Just the facts, no nonsense</summary>
 
 ## work — Claude Code Worktree Manager
 
@@ -144,7 +144,7 @@ MIT
 </details>
 
 <details>
-<summary><strong>Shakespearean README</strong></summary>
+<summary><strong>The Bard</strong> — Forsooth, a README most noble</summary>
 
 ## work — A Worktree Manager, Most Noble, for Claude Code
 
@@ -227,7 +227,7 @@ MIT — Free as the air we breathe, given to all without restraint.
 </details>
 
 <details>
-<summary><strong>Drunken Pirate README</strong></summary>
+<summary><strong>The Salty Sea Dog</strong> — *hic* ...where was I?</summary>
 
 ## work — *hic* — Claude Code Worktree... Worktree Managerer
 
@@ -308,7 +308,7 @@ MIT — Free as the seven seas, matey! *falls off chair*
 </details>
 
 <details>
-<summary><strong>INCREDIBLY EXCITED README</strong></summary>
+<summary><strong>The Hype Beast</strong> — I LITERALLY CANNOT CONTAIN MYSELF</summary>
 
 ## work — THE MOST REVOLUTIONARY WORKTREE MANAGER IN THE HISTORY OF SOFTWARE DEVELOPMENT AND POSSIBLY THE UNIVERSE
 
@@ -393,7 +393,7 @@ MIT — Because something THIS INCREDIBLE deserves to be FREE! FOR EVERYONE! FOR
 </details>
 
 <details>
-<summary><strong>Ho-Hum README</strong></summary>
+<summary><strong>The Nihilist</strong> — It's a tool. It exists. Whatever.</summary>
 
 ## work
 
