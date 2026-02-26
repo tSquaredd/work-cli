@@ -373,104 +373,99 @@ Thank you. We think you're going to love it.
 </details>
 
 <details>
-<summary><strong>The Ballad</strong> — Sing along if you know the words</summary>
+<summary><strong>The Chain Banger</strong> — Crush your round, birdie every hole</summary>
 
-## The Ballad of `work`
+## work — The Disc Golf Approach to Claude Code Session Management
 
-### :musical_note: Verse 1
+### Teeing Off
 
-*Well I woke up this morning with repos on my mind,*
-*Had branches all conflicting, of every shape and kind,*
-*I needed parallel sessions but they kept stepping on their toes,*
-*Then I found a little CLI and this is how it goes...*
+You know that feeling when you step up to hole 1, bag loaded, disc selection dialed in, and the fairway is wide open? That's what `work` feels like every time you open your terminal.
 
-### :musical_note: Chorus
+`work` is a worktree manager for Claude Code. Think of your workspace as the course, your repos as the holes, and each task as a round. With [git worktrees](https://git-scm.com/docs/git-worktree), every task gets its own disc — its own branch, its own isolated copy of the repo — so you can throw multiple rounds simultaneously without your discs ever colliding mid-fairway.
 
-*Oh, `work`! Sweet `work`!*
-*With your worktrees standing tall,*
-*You give each task its own little branch,*
-*And isolation for them all!*
-*Oh, `work`! Sweet `work`!*
-*No configuration needed,*
-*You scan my directories on your own,*
-*My prayers have been heeded!*
+Multi-repo tasks? One Claude session reads all the repos at once. It's like having a caddy who knows the line on every single hole across multiple courses. Simultaneously.
 
-### :musical_note: Verse 2 — The Installation Ballad
+Zero configuration. `work` walks the course for you and finds all the baskets automatically. You just throw.
 
-*Now if you want to join this song, the setup's pretty quick,*
-*Just tap and install with Homebrew, it's a mighty simple trick:*
+### Bagging Up (Installation)
+
+#### The Pro Shop (Homebrew)
 
 ```bash
 brew tap tSquaredd/homebrew-tap
 brew install --cask work
 ```
 
-*But if macOS gives you trouble, don't you shed a single tear,*
-*Just clear that quarantine away and let the music clear:*
+If macOS puts your binary in the lost & found like a disc that rolled into the pond:
 
 ```bash
-xattr -d com.apple.quarantine /opt/homebrew/bin/work
+xattr -d com.apple.quarantine /opt/homebrew/bin/work    # Apple Silicon
+xattr -d com.apple.quarantine /usr/local/bin/work       # Intel Mac
 ```
 
-*Or build it from the source yourself, for those who like to craft:*
+#### Field Work (Build from Source)
+
+For the players who like to dye their own discs:
 
 ```bash
 go install github.com/tSquaredd/work-cli/cmd/work@latest
 ```
 
-*But don't forget your [Claude Code](https://docs.anthropic.com/en/docs/claude-code), friend, or you'll be up the mast!*
+**Essential gear**: [Claude Code](https://docs.anthropic.com/en/docs/claude-code) — you wouldn't show up to a tournament without a putter (`npm install -g @anthropic-ai/claude-code`)
 
-### :musical_note: Chorus (reprise)
+### The Scorecard (Commands)
 
-*Oh, `work`! Sweet `work`!...*
+| Shot | What It Does |
+|------|-------------|
+| `work` | Step up to the tee pad — pick up a round in progress or start a fresh one |
+| `work dashboard` | The live leaderboard — every task, every session, every PR status at a glance |
+| `work list` | Check the lie on all your worktrees — PUSHED (parked it), UNPUSHED (still in the fairway), DIRTY (in the rough), CLEAN (haven't thrown yet) |
+| `work pr [task]` | Send your disc to the basket — create pull requests right from the tee box |
+| `work done` | Pick up your disc and move on — tear down worktrees when the round is over |
+| `work clean` | Clear the course — auto-remove worktrees that are already parked and chained |
+| `work <repo> <branch>` | Grip it and rip it — skip the warm-up, throw immediately |
+| `work update` | New plastic — grab the latest release, same reliable flight path |
 
-### :musical_note: Verse 3 — The Commands
+### The Leaderboard (Dashboard)
 
-*Now let me sing the commands to you, each one a little gem,*
-*Just type `work` to start it up, it's the finest of all them!*
+The dashboard is your tournament central. Two panels. Real-time. Every throw tracked.
 
-*The `dashboard` shows your tasks alive, with PRs gleaming bright,*
-*And `list` will show your worktrees, from DIRTY through to right,*
-*Type `pr` to make a pull request without a browser tab,*
-*And `done` will tear things down for you — don't worry, it won't grab*
-*A single branch that's unpushed, no sir, it warns you first,*
-*And `clean` sweeps up the tidy ones to quench your cleanup thirst!*
+And now it has PR status built right in — because what good is parking your approach shot if nobody sees the scorecard?
 
-### :musical_note: Bridge — The Dashboard
+- `○` **Open** — disc is in the air. Waiting for it to land.
+- `✓` **Approved** — CHAINED IT. Dead center. Nothing but chains.
+- `!` **Changes requested** — caught the cage. Good look, but you need a comeback putt.
+- `●` **Merged** — in the basket. Birdie. Maybe eagle. The card is signed.
+- `✗` **Closed** — O.B. It happens. Re-tee and move on.
 
-*Now the dashboard, oh the dashboard, it's a sight to make you weep,*
-*Two panels showing everything while your sessions run so deep,*
-*A circle means it's open, and a checkmark means approved,*
-*An exclamation? Changes wanted — but your spirit won't be moved!*
-*A purple dot means merged, my friend, your code's in main at last,*
-*And if you see that little x... well... let's not dwell on the past.*
+New comments glow in warning color — like a spotter yelling "NICE!" from across the fairway. Or "LEFT!" You'll know which.
 
-*Press `p` to make a PR, press `o` to see it bloom,*
-*Press `r` to resume a session, there's always enough room,*
-*Press `n` to start a new task and `c` to clean your plate,*
-*Press `d` to see the diff, and `a` to find your mate!*
+Press `p` to create a PR — it's like calling your shot. It pushes your branches (gets the disc to the circle), walks you through title and description (marking your lie), and creates PRs across all your repos in one fluid motion. A full send.
 
-### :musical_note: Verse 4 — How It Works
+Press `o` to open your PR in the browser. `work` marks it as viewed, like tapping your mini marker down. You've acknowledged the lie. Time to putt.
 
-*Your worktrees live in `.worktrees/`, each task has got a home,*
-*Deny rules guard the originals so Claude won't freely roam,*
-*Your build files all get symlinked, and your main dir stays pristine,*
-*It's the finest code arrangement that these eyes have ever seen!*
+All PR features degrade gracefully without `gh` installed — like playing a casual round without keeping score. The course is still there, still fun.
 
-### :musical_note: Outro
+### Course Layout (How It Works)
 
-*So if your branches tangle and your sessions start to fight,*
-*Just `work update` and carry on, everything will be alright,*
-*For `work` will keep on spinning up those worktrees one by one,*
-*Until the last commit is pushed...*
+- **The fairways**: Each task gets its own worktree at `<workspace>/.worktrees/<task-name>/<repo>/` — every hole is its own fairway, no shared rough
+- **O.B. stakes**: Deny rules block Claude from editing original repo paths — your bag stays in the cart, the worktree is what's in play
+- **The practice green**: Your main working directory is never touched. It stays pristine. Tournament ready.
+- **Preferred lies**: Build files (`local.properties`, `.env*`) are symlinked automatically — like winter rules, the tool gives you the best possible position
 
-*And the merge... is... done.*
+### Staying on the Card
 
-:musical_note: :musical_note: :musical_note:
+```bash
+work update
+```
+
+`work` lets you know when a new version drops. Like finding out your favorite mold just got a new run — you're going to want to bag it immediately.
 
 ### License
 
-*MIT — free for you, and free for me, from sea to shining sea!*
+MIT — Free as a disc golf course in a public park. Show up. Throw. No greens fees. Ever.
+
+*Now get out there and birdie every hole.*
 
 </details>
 
