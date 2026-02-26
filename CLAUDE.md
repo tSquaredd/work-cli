@@ -1,5 +1,7 @@
 # CLAUDE.md
 
+This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+
 ## What This Is
 
 `work` is a Go CLI tool that manages parallel Claude Code sessions using git worktrees. It auto-discovers git repos in a workspace, creates isolated worktrees per task, and launches Claude with appropriate directory access and deny rules.
@@ -8,14 +10,18 @@ Built with the Charm ecosystem: Bubble Tea (TUI), Lip Gloss (styling), Huh (form
 
 ## Build & Run
 
+Requires Go 1.25+.
+
 ```bash
 go build -o work ./cmd/work/   # Build binary
 go run ./cmd/work/              # Run directly
 go vet ./...                    # Static analysis
-go test ./...                   # Run tests
+go test ./...                   # Run tests (no test files exist yet)
 ```
 
 Version is set via ldflags: `go build -ldflags "-X main.version=2.0.0" -o work ./cmd/work/`
+
+CI (`.github/workflows/ci.yml`) runs build, vet, and test on push/PR to main.
 
 ## Project Structure
 
@@ -60,9 +66,18 @@ internal/
 - **huh for forms**: Interactive prompts use charmbracelet/huh (Select, MultiSelect, Input, Confirm) instead of raw Bubble Tea models.
 - **lipgloss for styled output**: Non-interactive commands (list, clean, version) use lipgloss directly without Bubble Tea.
 
+## Code Patterns
+
+- **Error wrapping**: Use `fmt.Errorf("context: %w", err)` consistently. For best-effort cleanup (branch deletion, dir removal), ignore errors with `_ = cmd.Run()`.
+- **Result structs**: Complex operations (e.g., `worktree.Create`) return result structs with an `Error` field rather than `(result, error)` tuples.
+- **Git commands**: Always pass `-C dir` flag to run in a specific directory. Never use go-git.
+- **TUI vs non-interactive**: Interactive flows go in `tui/` using huh forms with `ui.HuhTheme()`. Non-interactive output goes in `commands/` using lipgloss directly.
+- **Cobra aliases**: Commands have hidden aliases (e.g., `ls`→`list`, `teardown`→`done`), defined in their respective command files.
+- **Worktree status priority**: DIRTY > PUSHED > UNPUSHED > CLEAN (checked in that order in `InspectStatus()`).
+
 ## Distribution
 
 - **Repo**: `tSquaredd/work-cli` on GitHub
 - **Install**: `brew tap tSquaredd/tap && brew install work` or download from GitHub Releases
-- **Self-update**: `work update` checks GitHub Releases API
+- **Self-update**: `work update` checks GitHub Releases API; version cached at `~/.cache/work-cli/latest-version`
 - **Release**: Tag with `vX.Y.Z` → GitHub Actions runs goreleaser → binaries + Homebrew formula
