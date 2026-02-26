@@ -21,7 +21,8 @@ builds:
       - -s -w -X main.version={{.Version}}
 
 archives:
-  - format: tar.gz
+  - formats:
+      - tar.gz
     name_template: "{{ .ProjectName }}_{{ .Os }}_{{ .Arch }}"
 
 checksum:
@@ -35,15 +36,13 @@ changelog:
       - "^test:"
       - "^ci:"
 
-brews:
-  - repository:
-      owner: tSquaredd
-      name: homebrew-tap
-    name: work
+homebrew_casks:
+  - name: work
+    binaries:
+      - work
     homepage: https://github.com/tSquaredd/work-cli
     description: Claude Code worktree manager — parallel AI coding sessions
-    license: MIT
-    install: |
-      bin.install "work"
-    test: |
-      system "#{bin}/work", "version"
+    repository:
+      owner: tSquaredd
+      name: homebrew-tap
+      token: "{{ .Env.HOMEBREW_TAP_TOKEN }}"
