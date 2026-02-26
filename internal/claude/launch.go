@@ -8,7 +8,9 @@ import (
 	"path/filepath"
 	"strings"
 	"syscall"
+	"time"
 
+	"github.com/tSquaredd/work-cli/internal/session"
 	"github.com/tSquaredd/work-cli/internal/workspace"
 	"github.com/tSquaredd/work-cli/internal/worktree"
 )
@@ -182,6 +184,8 @@ Plan preservation:
 }
 
 // Exec replaces the current process with Claude, configured for the given worktrees.
+// Before exec, it registers the session PID with the tracker (if workspace root is available).
+// The PID survives exec since syscall.Exec replaces the same process.
 func Exec(cfg LaunchConfig) error {
 	claudePath, err := exec.LookPath("claude")
 	if err != nil {
@@ -198,12 +202,81 @@ func Exec(cfg LaunchConfig) error {
 	}
 	args = append(args, "--append-system-prompt", systemPrompt)
 
+	// Register session PID before exec (PID is preserved across exec)
+	if cfg.Workspace != nil {
+		tracker, tErr := session.NewTracker(cfg.Workspace.Root)
+		if tErr == nil {
+			rec := session.SessionRecord{
+				TaskName:      cfg.TaskName,
+				PID:           os.Getpid(),
+				Dirs:          cfg.Dirs,
+				LaunchedAt:    time.Now(),
+				WorkspaceRoot: cfg.Workspace.Root,
+			}
+			_ = tracker.Register(rec) // best effort
+		}
+	}
+
 	// Change to first worktree directory
 	if err := os.Chdir(cfg.Dirs[0]); err != nil {
 		return fmt.Errorf("changing to worktree directory: %w", err)
 	}
 
 	return syscall.Exec(claudePath, args, os.Environ())
+}
+
+// SpawnInTab launches Claude in a new terminal tab instead of replacing the current process.
+// It prepares the session files, opens a tab, and registers the session.
+func SpawnInTab(cfg LaunchConfig) error {
+	if err := Prepare(cfg); err != nil {
+		return err
+	}
+
+	claudePath, err := exec.LookPath("claude")
+	if err != nil {
+		return fmt.Errorf("claude not found in PATH — install with: npm install -g @anthropic-ai/claude-code")
+	}
+
+	systemPrompt := BuildSystemPrompt(cfg)
+
+	var cmdParts []string
+	cmdParts = append(cmdParts, fmt.Sprintf("cd %q", cfg.Dirs[0]))
+
+	args := []string{claudePath}
+	for i, d := range cfg.Dirs {
+		if i > 0 {
+			args = append(args, "--add-dir", d)
+		}
+	}
+	args = append(args, "--append-system-prompt", fmt.Sprintf("%q", systemPrompt))
+	cmdParts = append(cmdParts, strings.Join(args, " "))
+
+	command := strings.Join(cmdParts, " && ")
+	tabTitle := "work: " + cfg.TaskName
+
+	opener := session.DetectTerminal()
+	pid, err := opener.OpenTab(command, tabTitle)
+	if err != nil {
+		return fmt.Errorf("spawning terminal tab: %w", err)
+	}
+
+	// Register session
+	if cfg.Workspace != nil {
+		tracker, tErr := session.NewTracker(cfg.Workspace.Root)
+		if tErr == nil {
+			rec := session.SessionRecord{
+				TaskName:      cfg.TaskName,
+				PID:           pid,
+				Dirs:          cfg.Dirs,
+				LaunchedAt:    time.Now(),
+				TerminalTab:   tabTitle,
+				WorkspaceRoot: cfg.Workspace.Root,
+			}
+			_ = tracker.Register(rec)
+		}
+	}
+
+	return nil
 }
 
 // Launch prepares and execs Claude in a single call.

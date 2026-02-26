@@ -57,6 +57,8 @@ func init() {
 		newCleanCmd(),
 		newVersionCmd(),
 		newUpdateCmd(),
+		newDashboardCmd(),
+		newAttachCmd(),
 	)
 
 	// Add aliases as hidden commands
@@ -69,6 +71,7 @@ func init() {
 		{"teardown", newDoneCmd()},
 		{"finish", newDoneCmd()},
 		{"prune", newCleanCmd()},
+		{"dash", newDashboardCmd()},
 	} {
 		aliasCmd := *alias.cmd
 		aliasCmd.Use = alias.name
