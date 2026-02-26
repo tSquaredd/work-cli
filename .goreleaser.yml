@@ -1,0 +1,49 @@
+version: 2
+
+project_name: work
+
+before:
+  hooks:
+    - go mod tidy
+
+builds:
+  - main: ./cmd/work
+    binary: work
+    env:
+      - CGO_ENABLED=0
+    goos:
+      - darwin
+      - linux
+    goarch:
+      - amd64
+      - arm64
+    ldflags:
+      - -s -w -X main.version={{.Version}}
+
+archives:
+  - format: tar.gz
+    name_template: "{{ .ProjectName }}_{{ .Os }}_{{ .Arch }}"
+
+checksum:
+  name_template: checksums.txt
+
+changelog:
+  sort: asc
+  filters:
+    exclude:
+      - "^docs:"
+      - "^test:"
+      - "^ci:"
+
+brews:
+  - repository:
+      owner: tSquaredd
+      name: homebrew-tap
+    name: work
+    homepage: https://github.com/tSquaredd/work-cli
+    description: Claude Code worktree manager — parallel AI coding sessions
+    license: MIT
+    install: |
+      bin.install "work"
+    test: |
+      system "#{bin}/work", "version"
