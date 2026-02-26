@@ -63,7 +63,7 @@ func (m statusBarModel) keybindView() string {
 			binds = append(binds, keyStyle.Render("a")+descStyle.Render(":attach"))
 		}
 
-		binds = append(binds, keyStyle.Render("Enter")+descStyle.Render(":toggle"))
+		binds = append(binds, keyStyle.Render("Enter")+descStyle.Render(":expand"))
 	}
 
 	binds = append(binds, keyStyle.Render("n")+descStyle.Render(":new"))
