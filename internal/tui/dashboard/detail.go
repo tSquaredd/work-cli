@@ -94,6 +94,7 @@ func (m detailModel) view() string {
 				if wt.PR.NewComments > 0 {
 					commentStr += ui.StyleWarning.Render(fmt.Sprintf(" (%d new)", wt.PR.NewComments))
 				}
+				commentStr += ui.StyleDim.Render("  m to view")
 				prLine += ui.StyleDim.Render(commentStr)
 			}
 			b.WriteString(prLine + "\n")

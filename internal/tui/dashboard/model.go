@@ -29,6 +29,10 @@ type Model struct {
 	width  int
 	height int
 
+	// Comment viewer overlay
+	comments     commentViewModel
+	showComments bool
+
 	// State
 	confirming  bool
 	confirmTask string
@@ -99,6 +103,32 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 		return m, nil
 
+	case commentsLoadedMsg:
+		if msg.err != nil {
+			m.statusBar.message = fmt.Sprintf("Error loading comments: %s", msg.err)
+			return m, clearMessageCmd()
+		}
+		m.comments.setData(msg.taskName, msg.repoAlias, msg.prNumber, msg.dir, msg.comments)
+		m.comments.width = m.width
+		m.comments.height = m.height
+		m.showComments = true
+		m.updateStatusBar()
+		return m, nil
+
+	case commentRepliedMsg:
+		if msg.err != nil {
+			m.comments.replyErr = msg.err.Error()
+			m.comments.mode = commentModeBrowse
+			return m, nil
+		}
+		m.comments.cancelReply()
+		m.statusBar.message = "Reply posted"
+		// Refresh comments
+		return m, tea.Batch(
+			loadComments(m.comments.taskName, m.comments.repoAlias, m.comments.worktreeDir, m.comments.prNumber),
+			clearMessageCmd(),
+		)
+
 	case actionResultMsg:
 		m.statusBar.message = msg.message
 		m.confirming = false
@@ -135,6 +165,11 @@ func (m Model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	// Handle confirmation mode
 	if m.confirming {
 		return m.handleConfirmKey(msg)
+	}
+
+	// Handle comment viewer overlay
+	if m.showComments {
+		return m.handleCommentKey(msg)
 	}
 
 	// Handle diff scroll mode
@@ -200,6 +235,9 @@ func (m Model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 
 	case "o":
 		return m.handleBrowserOpen()
+
+	case "m":
+		return m.handleComments()
 	}
 
 	return m, nil
@@ -435,6 +473,179 @@ func (m Model) handleBrowserOpen() (tea.Model, tea.Cmd) {
 	return m, clearMessageCmd()
 }
 
+func (m Model) handleComments() (tea.Model, tea.Cmd) {
+	sel := m.taskList.selected()
+	if sel == nil || !sel.HasPRs {
+		return m, nil
+	}
+
+	// Collect worktrees with PRs
+	type prEntry struct {
+		alias    string
+		dir      string
+		prNumber int
+	}
+	var prs []prEntry
+	for _, wt := range sel.Worktrees {
+		if wt.PR != nil && wt.PR.Number > 0 {
+			prs = append(prs, prEntry{alias: wt.Alias, dir: wt.Dir, prNumber: wt.PR.Number})
+		}
+	}
+
+	if len(prs) == 0 {
+		return m, nil
+	}
+
+	// Auto-select if only one PR
+	entry := prs[0]
+	m.statusBar.message = fmt.Sprintf("Loading comments for PR #%d...", entry.prNumber)
+	return m, loadComments(sel.Name, entry.alias, entry.dir, entry.prNumber)
+}
+
+func (m Model) handleCommentKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
+	key := msg.String()
+
+	// Claude prompt editing mode
+	if m.comments.mode == commentModeClaudePrompt {
+		switch key {
+		case "esc":
+			m.comments.cancelClaudePrompt()
+			return m, nil
+		case "enter":
+			if t := m.comments.currentThread(); t != nil {
+				m.comments.claudeRequested = true
+				m.comments.claudeThread = t
+				return m, tea.Quit
+			}
+			return m, nil
+		case "backspace":
+			if len(m.comments.claudePromptBuf) > 0 {
+				m.comments.claudePromptBuf = m.comments.claudePromptBuf[:len(m.comments.claudePromptBuf)-1]
+			}
+			return m, nil
+		default:
+			if len(key) == 1 {
+				m.comments.claudePromptBuf = append(m.comments.claudePromptBuf, rune(key[0]))
+			} else if key == "space" {
+				m.comments.claudePromptBuf = append(m.comments.claudePromptBuf, ' ')
+			}
+			return m, nil
+		}
+	}
+
+	// Reply mode input
+	if m.comments.mode == commentModeReply {
+		switch key {
+		case "esc":
+			m.comments.cancelReply()
+			return m, nil
+		case "enter":
+			body := strings.TrimSpace(string(m.comments.replyBuf))
+			if body == "" {
+				m.comments.cancelReply()
+				return m, nil
+			}
+			m.comments.mode = commentModeBrowse
+			m.statusBar.message = "Posting reply..."
+			if m.comments.isOnThread() {
+				commentID := m.comments.lastCommentID()
+				return m, replyToComment(m.comments.worktreeDir, m.comments.prNumber, commentID, body)
+			}
+			return m, replyToIssueComment(m.comments.worktreeDir, m.comments.prNumber, body)
+		case "backspace":
+			if len(m.comments.replyBuf) > 0 {
+				m.comments.replyBuf = m.comments.replyBuf[:len(m.comments.replyBuf)-1]
+			}
+			return m, nil
+		default:
+			// Append printable characters
+			if len(key) == 1 {
+				m.comments.replyBuf = append(m.comments.replyBuf, rune(key[0]))
+			} else if key == "space" {
+				m.comments.replyBuf = append(m.comments.replyBuf, ' ')
+			}
+			return m, nil
+		}
+	}
+
+	// Browse mode
+	switch key {
+	case "n", "j", "down":
+		m.comments.next()
+		return m, nil
+	case "p", "k", "up":
+		m.comments.prev()
+		return m, nil
+	case "J":
+		m.comments.scrollDown()
+		return m, nil
+	case "K":
+		m.comments.scrollUp()
+		return m, nil
+	case "R":
+		m.comments.startReply()
+		return m, nil
+	case "C":
+		if m.comments.currentThread() != nil {
+			m.comments.startClaudePrompt()
+			return m, nil
+		}
+		return m, nil
+	case "o":
+		// Open PR in browser
+		sel := m.taskList.selected()
+		if sel != nil {
+			for _, wt := range sel.Worktrees {
+				if wt.PR != nil && wt.PR.URL != "" {
+					return m, openBrowser(wt.PR.URL)
+				}
+			}
+		}
+		return m, nil
+	case "esc", "m":
+		m.showComments = false
+		m.updateStatusBar()
+		return m, nil
+	case "q":
+		m.quitting = true
+		return m, tea.Quit
+	}
+
+	return m, nil
+}
+
+// CommentClaudeRequested returns true if the user pressed 'C' to hand off a thread to Claude.
+func (m Model) CommentClaudeRequested() bool {
+	return m.comments.claudeRequested
+}
+
+// CommentClaudeContext returns the context needed to launch Claude with the review comment.
+func (m Model) CommentClaudeContext() *claude.CommentContext {
+	if !m.comments.claudeRequested || m.comments.claudeThread == nil {
+		return nil
+	}
+	t := m.comments.claudeThread
+	return &claude.CommentContext{
+		PRNumber:       m.comments.prNumber,
+		FilePath:       t.Path,
+		Line:           t.Line,
+		DiffHunk:       t.DiffHunk,
+		ThreadBody:     FormatThreadBody(t),
+		WorktreeDir:    m.comments.worktreeDir,
+		UserPrompt:     m.comments.claudeUserPrompt(),
+	}
+}
+
+// CommentTaskName returns the task name from the comment viewer.
+func (m Model) CommentTaskName() string {
+	return m.comments.taskName
+}
+
+// CommentWorktreeDir returns the worktree directory from the comment viewer.
+func (m Model) CommentWorktreeDir() string {
+	return m.comments.worktreeDir
+}
+
 // OpenPRRequested returns true if the user pressed 'p' to open the PR wizard.
 func (m Model) OpenPRRequested() bool {
 	return m.openPR
@@ -476,8 +687,19 @@ func (m *Model) updateStatusBar() {
 	m.statusBar.hasTask = sel != nil
 	m.statusBar.hasActive = sel != nil && sel.HasSession
 	m.statusBar.showDiff = m.detail.showDiff
+	m.statusBar.showComments = m.showComments
 	m.statusBar.hasPR = sel != nil && sel.HasPRs
+	m.statusBar.hasComments = sel != nil && m.hasComments(sel)
 	m.statusBar.ghAvailable = m.svc.GHAvailable
+}
+
+func (m *Model) hasComments(sel *service.TaskView) bool {
+	for _, wt := range sel.Worktrees {
+		if wt.PR != nil && wt.PR.CommentCount > 0 {
+			return true
+		}
+	}
+	return false
 }
 
 func (m Model) View() string {
@@ -487,6 +709,11 @@ func (m Model) View() string {
 
 	if m.width == 0 {
 		return "Loading..."
+	}
+
+	// Fullscreen comment viewer overlay
+	if m.showComments {
+		return m.comments.view()
 	}
 
 	// Narrow terminal: single panel mode

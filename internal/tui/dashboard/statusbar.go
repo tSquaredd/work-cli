@@ -9,13 +9,15 @@ import (
 
 // statusBarModel manages the bottom bar — context-sensitive keybind display.
 type statusBarModel struct {
-	width       int
-	hasTask     bool
-	hasActive   bool
-	hasPR       bool
-	ghAvailable bool
-	showDiff    bool
-	message     string // transient status message
+	width        int
+	hasTask      bool
+	hasActive    bool
+	hasPR        bool
+	hasComments  bool
+	ghAvailable  bool
+	showDiff     bool
+	showComments bool
+	message      string // transient status message
 }
 
 func newStatusBarModel() statusBarModel {
@@ -66,6 +68,9 @@ func (m statusBarModel) keybindView() string {
 		}
 		if m.hasPR {
 			binds = append(binds, keyStyle.Render("o")+descStyle.Render(":open"))
+		}
+		if m.hasComments && m.hasPR {
+			binds = append(binds, keyStyle.Render("m")+descStyle.Render(":comments"))
 		}
 	}
 

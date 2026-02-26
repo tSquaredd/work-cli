@@ -41,6 +41,8 @@ Download from [GitHub Releases](https://github.com/tSquaredd/work-cli/releases) 
 
 **Requires**: [Claude Code](https://docs.anthropic.com/en/docs/claude-code) (`npm install -g @anthropic-ai/claude-code`)
 
+**Optional**: [GitHub CLI](https://cli.github.com/) for PR management, review comments, and Claude handoff (`brew install gh && gh auth login`)
+
 ### Commands
 
 | Command | What it does |
@@ -63,7 +65,7 @@ work                                              2 tasks  1 active
   fix-onboarding                          │   3 files changed, 12 insertions(+)
     └── app-ios         DIRTY             │   PR #42  ○ OPEN  4 comments (2 new)
 ──────────────────────────────────────────────────────────────────────
-↑↓:navigate  r:resume  d:diff  c:clean  a:attach  p:pr  o:open  n:new  q:quit
+↑↓:navigate  r:resume  d:diff  c:clean  a:attach  p:pr  o:open  m:comments  n:new  q:quit
 ```
 
 **Dashboard keybindings:**
@@ -75,12 +77,20 @@ work                                              2 tasks  1 active
 | `a` | Attach — focus the terminal tab of an active session |
 | `p` | Open PR creation wizard for the selected task |
 | `o` | Open the task's PR in your browser |
+| `m` | Open the in-terminal comment viewer for a PR |
 | `n` | Start a new task |
 | `c` | Clean up a task's worktrees |
 
 ### PR Management
 
-Create and monitor pull requests without leaving the terminal. Requires the [GitHub CLI](https://cli.github.com/) (`gh`).
+Create and monitor pull requests without leaving the terminal. Requires the [GitHub CLI](https://cli.github.com/) (`gh`):
+
+```bash
+brew install gh       # install
+gh auth login         # authenticate — follow the prompts to log in via browser
+```
+
+Or see [other install methods](https://github.com/cli/cli#installation) for Linux/Windows.
 
 **Create PRs** — press `p` in the dashboard:
 - Auto-pushes unpushed branches
@@ -91,6 +101,12 @@ Create and monitor pull requests without leaving the terminal. Requires the [Git
 - `○` Open  `✓` Approved  `!` Changes requested  `●` Merged  `✗` Closed
 - New comment counts highlighted so you know when to check back
 - Press `o` to open a PR in your browser
+
+**Review comments** — press `m` to read and respond to review feedback without leaving the terminal:
+- Fullscreen overlay showing one thread per screen with file path, diff context, and comments
+- Navigate threads with `n`/`p`, scroll with `j`/`k`
+- Press `R` to reply directly from the terminal
+- Press `C` to hand the thread off to Claude — opens a new session pre-loaded with the comment context, file path, and worktree info, launched in plan mode. You can add your own instructions before it launches.
 
 All PR features gracefully degrade when `gh` is not installed — the dashboard works normally without them.
 
@@ -114,9 +130,9 @@ work                                              2 tasks  1 active
     └── app-android     PUSHED  ✓ #15     │ shared-lib  PUSHED
                                           │   branch: lib-auth-refactor
   fix-onboarding                          │   3 files changed, 12 insertions(+)
-    └── app-ios         DIRTY             │   PR #42  ○ OPEN  4 comments (2 new)
+    └── app-ios         DIRTY             │   PR #42  ○ OPEN  4 comments (2 new)  m to view
 ──────────────────────────────────────────────────────────────────────
-↑↓:navigate  r:resume  d:diff  c:clean  a:attach  p:pr  o:open  n:new  q:quit
+↑↓:navigate  r:resume  d:diff  c:clean  a:attach  p:pr  o:open  m:comments  n:new  q:quit
 ```
 
 ### Updating
@@ -176,6 +192,11 @@ go install github.com/tSquaredd/work-cli/cmd/work@latest
 
 **Thou must first possess**: [Claude Code](https://docs.anthropic.com/en/docs/claude-code), that learned companion, without whom all is silence upon the stage (`npm install -g @anthropic-ai/claude-code`)
 
+**And shouldst thou desire petitions for review**: The [GitHub CLI](https://cli.github.com/), herald of pull requests, must be summoned and sworn in:
+```bash
+brew install gh && gh auth login
+```
+
 ### Act III — The Instruments of Action
 
 *DEVELOPER takes the throne. A flourish of trumpets.*
@@ -199,6 +220,8 @@ Press `p` to petition for review — thy code laid bare before the judgement of 
 - `✗` Closed — *alas, poor pull request! I knew it, Horatio*
 
 And lo, shouldst new comments appear upon thy petition, their count shall glow in amber warning, that thou might attend to thy reviewers' counsel with haste.
+
+Press `m` to summon the Comment Viewer — a sacred scroll upon which every review thread doth unfurl, one discourse per page. Read thy reviewers' counsel, compose thy reply with `R`, or press `C` to dispatch Claude as thy champion, armed with the full context of the comment, the file, and the diff — entering first in plan mode to deliberate before drawing the sword.
 
 ### Act V — The Mechanics of This Wonder
 
@@ -286,6 +309,14 @@ go install github.com/tSquaredd/work-cli/cmd/work@latest
 
 `work` pairs beautifully with [Claude Code](https://docs.anthropic.com/en/docs/claude-code). You're going to need that installed too. (`npm install -g @anthropic-ai/claude-code`)
 
+And for our incredible PR features — the comment viewer, the review management, the Claude handoff — you'll want the [GitHub CLI](https://cli.github.com/). Setup is effortless:
+
+```bash
+brew install gh && gh auth login
+```
+
+That's it. Two commands. Seamless.
+
 ### Commands
 
 Let me walk you through what `work` can do. And honestly, I think you're going to be blown away.
@@ -319,6 +350,14 @@ Press `p` to create a PR. It pushes your branches, walks you through the title a
 Press `o` to open your PR in the browser. It even marks it as viewed. The little details matter, and we've sweated every single one.
 
 *[pause]*
+
+But we're not done. And I think this next part is really going to surprise you.
+
+Press `m`, and you get a *full in-terminal comment viewer*. Every review thread. The file. The diff context. The conversation. All right there. No browser. No tab switching. Just you and the feedback.
+
+Press `R` to reply. Press `C` — and this is the part I love — to hand the comment directly to Claude. It launches a new session, in plan mode, pre-loaded with everything: the file, the line, the review context. You can even add your own instructions before it opens. The team has really outdone themselves on this one.
+
+*[sustained applause]*
 
 We really think this is going to change the way you work.
 
@@ -357,13 +396,19 @@ Thank you. We think you're going to love it.
 
 ## work
 
-Look, I'm going to be honest with you. I was mass-producing spaghetti code across three repos, branches tangled like headphone cables at the bottom of my disc bag, merge conflicts stacking up worse than a backup on hole 7 when the group ahead is putting with Bergs from 80 feet out. One by one. Into the wind.
+You know that feeling. First throw of the day. Morning fog still hanging in the trees. Dew on the teepad. You've got a clean line through the gap — maybe 240 feet, slight dogleg left — and you know exactly which disc to reach for. You set your feet, take a breath, pull through clean, and watch it flip up, ride the line, and park under the basket. Nothing but grass and chains ahead.
 
-Then I found `work` and it was like switching from a base-plastic Groove to a seasoned Halo Destroyer. Same arm. Completely different game.
+That's what coding is supposed to feel like.
 
-`work` gives every task its own worktree — its own isolated branch, its own copy of the repo, nothing interfering with anything else. It's the coding equivalent of having the whole course to yourself on a Tuesday morning. No waiting. No distractions. Just clean lines and confident throws.
+Instead, you've got three repos with branches tangled like fishing line after a water carry, merge conflicts breeding faster than mushrooms on a Pacific Northwest fairway, and you're spending more time switching context than actually writing code. You're grip-locked. Your mental game is shot. You're throwing nose-up hyzers into the first available tree on every hole.
 
-Got multiple repos? One Claude session sees all of them. It's like that buddy who somehow knows the line on every hole at every course within 50 miles. Except this buddy also writes your code.
+`work` is the round that fixes your form.
+
+It uses [git worktrees](https://git-scm.com/docs/git-worktree) to give every task its own isolated branch, its own clean copy of the repo — like stepping up to a fresh teepad on an empty course. No groups ahead. No one breathing down your neck. Just you, the gap, and the flight line you've been visualizing since the parking lot.
+
+Multiple repos? One Claude session reads them all. It's the buddy who's played every course within 100 miles and still remembers the wind patterns from three Tuesdays ago. Except this buddy also writes your code while you're enjoying the walk.
+
+Zero configuration. It finds your repos the way your eyes find a gap through the trees — automatically, instinctively, without thinking about it.
 
 ### Getting It In the Bag
 
@@ -372,33 +417,55 @@ brew tap tSquaredd/homebrew-tap
 brew install --cask work
 ```
 
-If macOS quarantines it — and it will, because macOS treats unsigned binaries the way a headwind treats your understable fairway driver:
+If macOS quarantines it — and it will, because macOS treats unsigned binaries the way that one tree 40 feet off the tee treats your favorite driver. You know the tree. Everyone knows the tree.
 
 ```bash
 xattr -d com.apple.quarantine /opt/homebrew/bin/work
 ```
 
-You can also build from source (`go install github.com/tSquaredd/work-cli/cmd/work@latest`) if you're the type who field tests prototype plastic before it hits production. Respect.
+Build from source (`go install github.com/tSquaredd/work-cli/cmd/work@latest`) if you're the type who buys first-run prototype plastic and field tests it before anyone else has a flight number. Respect.
 
-You'll need [Claude Code](https://docs.anthropic.com/en/docs/claude-code) installed. That's your putter. You're not playing a round without a putter.
+You'll need [Claude Code](https://docs.anthropic.com/en/docs/claude-code) installed. That's your putter. Nobody leaves the house without a putter. Not even the guy who only throws Destroyers.
 
-### Throwing a Round
+For the PR stuff — comments, reviews, handing threads to Claude — you need the [GitHub CLI](https://cli.github.com/). Think of it as your mini marker. You *can* play without it, but you're going to want it:
 
-`work` drops you straight into the dashboard — the live leaderboard. Every task, every session, every PR, all right there. Two panels. It's like UDisc Live but for your codebase.
+```bash
+brew install gh && gh auth login
+```
 
-The dashboard now shows PR status right on each worktree, because nothing is more frustrating than parking your approach 10 feet out and having nobody see it. Little indicators tell you what's up:
+### The Caddy Book
 
-- `○` Out for review — disc is in the air, looking good
-- `✓` Approved — nothing but chains. Walk-up birdie.
-- `!` Changes requested — caught cage. Kick-out. Gotta step up for the comebacker.
-- `●` Merged — in the basket. Sign the card. Move on.
-- `✗` Closed — O.B. It happens to everyone. Even McBeth shanks one now and then.
+Type `work` and you're looking at the caddy book — every hole laid out in front of you. Tasks on the left, details on the right. Sessions, diffs, PR status, all in one view. It's UDisc, your spotter, and a course map rolled into one terminal window.
 
-Press `p` to create a PR and `o` to open one in your browser. The tool auto-pushes your branches first because it knows you forgot. Like a caddy who hands you the right disc before you even reach into the bag.
+PR status shows up right on each worktree because there's nothing worse than parking a 300-foot flex line 10 feet from the pin and having nobody around to see it:
 
-### How It Plays
+- `○` Out for review — disc is in the air, you like the angle, looking good
+- `✓` Approved — nothing but chains. Walk-up birdie. Fist bump your cardmate.
+- `!` Changes requested — caught cage. Spit out. Deep breath, step up, drain the comebacker.
+- `●` Merged — in the basket. Sign the card. On to the next hole.
+- `✗` Closed — O.B. It happens. Even McBeth kicks a tree on the island hole sometimes.
 
-Each task gets its own worktree tucked away in `.worktrees/`. Your original repos are untouchable — `work` sets up deny rules so Claude can't edit them, like O.B. stakes that actually work. Build config files get symlinked so everything just runs. Your main directory stays clean. Tournament ready at all times.
+Press `p` to open a PR — it pushes your branches first because it knows you forgot, the same way you always forget to check the pin position before you throw. Like a caddy who's already holding the right disc before you reach into the bag.
+
+Press `o` to open your PR in the browser. Sometimes you just need to see the full flight.
+
+### Reading the Wind
+
+Here's where it gets good. Press `m` on any PR with comments and the review thread opens right in your terminal — fullscreen, one thread per screen, with the file path, the diff context, the whole conversation. It's like walking up to the tee sign and actually reading it instead of just gripping and ripping.
+
+Navigate threads with `n`/`p`. Page through them like checking every hole on the course map before your round.
+
+Press `R` to reply right from the terminal. No switching to your browser. No losing your train of thought. It's like calling your line from the teepad — quick, confident, keeping the round moving.
+
+Press `C` and this is the money shot — it spawns a whole Claude session pre-loaded with the review comment, the file, the diff, your worktree path, everything. Claude opens in plan mode, ready to craft the perfect approach. You can add your own notes before launch — maybe you want a specific angle, maybe you know there's a tree at 150 that everyone else misses. Type your instructions, press Enter, and Claude goes to work while you enjoy the walk.
+
+It's the difference between scrambling through the rough looking for your disc and standing on the fairway watching it glide to the pin on the exact line you called.
+
+### Course Management
+
+Each task gets its own worktree tucked away in `.worktrees/` — like having separate bags for casual rounds and tournament play. Your original repos are untouchable. `work` sets up deny rules so Claude can't edit them — O.B. stakes that actually work, not those flimsy ones that fall over when a Tilt rolls through.
+
+Build config files get symlinked automatically. Your main directory stays clean. Tournament ready at all times. No loose discs on the floorboard. No random towels hanging off your bag. Just clean lines and confident throws.
 
 ### New Plastic
 
@@ -406,13 +473,13 @@ Each task gets its own worktree tucked away in `.worktrees/`. Your original repo
 work update
 ```
 
-Alerts you when a new version drops. You know the feeling — new run of your favorite mold just hit the shelves and you need to bag it before it sells out. Except this one's always in stock. And free.
+Alerts you when a new run drops. You know the feeling — your favorite mold just got a new stamp and you're refreshing the shop page like it's DGPT coverage on a Sunday afternoon. Except this one's always in stock. And always free.
 
 ### License
 
-MIT — Free like a public course. Show up. Throw. Tell your friends.
+MIT — Free like the best course you've ever played. The one with the creek on hole 4, the tunnel shot on 11, and the downhill bomber on 18 where you always go for it even when you shouldn't. Show up. Throw. Tell your friends.
 
-*May all your putts be inside the circle and all your merge conflicts be fast-forwards.*
+*May your trees be decoration, your gaps be wide, and your code ship as clean as a flat hyzer on a calm morning.*
 
 </details>
 
@@ -453,6 +520,8 @@ go install github.com/tSquaredd/work-cli/cmd/work@latest
 
 **You need**: [Claude Code](https://docs.anthropic.com/en/docs/claude-code) — but honestly if you don't already have this installed WHAT ARE YOU EVEN DOING WITH YOUR LIFE
 
+**ALSO**: The [GitHub CLI](https://cli.github.com/) for the PR features! `brew install gh && gh auth login`! TWO COMMANDS! That's ALL that stands between you and the MOST INCREDIBLE review comment experience OF YOUR LIFE!
+
 ### Commands (EVERY SINGLE ONE IS A MASTERPIECE)
 
 | Command | WHAT IT DOES (AMAZINGLY) |
@@ -474,6 +543,8 @@ The dashboard is SO GOOD it should be in a MUSEUM. Real-time task overview. Sess
 Press `p` and it CREATES PRs for you! It PUSHES your branches! Picks the base branch! Writes the title! For ALL your worktrees AT ONCE! I genuinely cannot believe this is free software!
 
 Press `o` and your PR opens in the browser and it TRACKS YOUR COMMENTS so you know when someone has left new feedback! THE ATTENTION TO DETAIL IS STAGGERING!
+
+AND NOW — I need you to brace yourself — press `m` and you get a FULL-SCREEN IN-TERMINAL COMMENT VIEWER! You can READ every review thread! REPLY with `R`! And press `C` to HAND THE ENTIRE COMMENT TO CLAUDE who opens in PLAN MODE with the FILE and the DIFF and the REVIEW CONTEXT already loaded! You can even ADD YOUR OWN INSTRUCTIONS before it launches! I AM LITERALLY SHAKING!
 
 ### How It Works (PREPARE TO BE AMAZED AGAIN)
 
@@ -530,6 +601,8 @@ go install github.com/tSquaredd/work-cli/cmd/work@latest
 
 Requires [Claude Code](https://docs.anthropic.com/en/docs/claude-code). So this is a tool that wraps another tool that wraps an AI that writes code. We're three layers of abstraction away from actually doing anything. Impressive in its own way.
 
+You'll also want the [GitHub CLI](https://cli.github.com/) if you want the PR features to work. `brew install gh && gh auth login`. So that's Homebrew to install `gh` to enable features in `work` which wraps Claude Code which calls an API. It's dependencies all the way down.
+
 ### What It Does
 
 You type `work` and you get a dashboard. It shows your tasks in two panels. It's a list on the left and details on the right. I've seen this layout in every application since Microsoft Outlook 2003. It also shows PR status, which is information you could get from GitHub in about two clicks, but sure, let's put it in the terminal too.
@@ -545,6 +618,8 @@ Little symbols appear next to your worktrees:
 - `✗` Closed — rejected. The system works.
 
 It tracks new comments. So now instead of not checking GitHub, you can not check your terminal. Progress.
+
+There's also a comment viewer now. Press `m` and you can read review threads right in the terminal. You can reply with `R`, which saves you the grueling labor of opening a browser tab. Or press `C` to hand the comment to Claude, which launches a whole new session in plan mode pre-loaded with the review context. You can type additional instructions first, in case Claude needs your guidance to understand a code review comment. An AI that needs a human to interpret human feedback. The circle of life.
 
 ### How It Works
 
@@ -588,6 +663,8 @@ go install github.com/tSquaredd/work-cli/cmd/work@latest
 
 You'll need Claude Code installed. You probably already know that.
 
+For PR features: `brew install gh && gh auth login`. Or don't. Up to you.
+
 ### Commands
 
 | Command | Description |
@@ -602,7 +679,7 @@ The dashboard shows tasks on the left and details on the right. You can press ke
 
 It shows PR status too. Little symbols next to worktrees. Circle means open, checkmark means approved, exclamation means changes requested. You get the idea.
 
-Press `p` to make a PR. Press `o` to open one in your browser. It works.
+Press `p` to make a PR. Press `o` to open one in your browser. Press `m` to read review comments. You can reply or send them to Claude. It works.
 
 ### PR Management
 
@@ -664,6 +741,14 @@ go install github.com/tSquaredd/work-cli/cmd/work@latest
 
 You also need this [Claude Code](https://docs.anthropic.com/en/docs/claude-code) thing. `npm install -g @anthropic-ai/claude-code`. Don't ask me what npm stands for. I asked once and the answer made me tired.
 
+OH and for the PR stuff — the comments, the reviews, all that — you need this [GitHub CLI](https://cli.github.com/) thing too:
+
+```bash
+brew install gh && gh auth login
+```
+
+It'll ask you to log in through your browser which is kinda like when a website sends you to ANOTHER website. But then it works! And then you get all the cool PR features! Worth it!
+
 ### What's Up With All The Commands, Sup
 
 | Command | The Deal |
@@ -687,6 +772,8 @@ Little symbols pop up next to your worktrees:
 Press `p` and it makes PRs for you! It even pushes your branches first because it KNOWS you forgot! This tool gets me, man. Like on a personal level.
 
 Press `o` and the PR opens right in your browser! And it remembers which comments you already saw so you know when there's new ones! It's like having a really organized roommate! Which, let me tell you, I could USE!
+
+OH and press `m` — M! Like the letter! — and you can read ALL the review comments right in the terminal! And you can REPLY with `R`! And — okay this is the wild part — press `C` and it sends the whole comment to Claude! Like, the file path, the diff, the review thread, EVERYTHING! Claude opens up in plan mode already knowing what to do! You can even type your own notes before it launches! It's like having a friend who not only reads your texts FOR you but also writes the reply! Except it's code! And it's good at it!
 
 ### How It Works — I'll Try To Explain
 

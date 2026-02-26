@@ -6,6 +6,7 @@ import (
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/spf13/cobra"
+	"github.com/tSquaredd/work-cli/internal/claude"
 	"github.com/tSquaredd/work-cli/internal/github"
 	"github.com/tSquaredd/work-cli/internal/prstate"
 	"github.com/tSquaredd/work-cli/internal/service"
@@ -78,6 +79,21 @@ var rootCmd = &cobra.Command{
 			}
 
 			switch {
+			case m.CommentClaudeRequested():
+				ctx := m.CommentClaudeContext()
+				taskName := m.CommentTaskName()
+				dir := m.CommentWorktreeDir()
+				if ctx != nil && taskName != "" && dir != "" {
+					cfg := claude.LaunchConfig{
+						Workspace:     ws,
+						TaskName:      taskName,
+						Dirs:          []string{dir},
+						Comment:       ctx,
+						InitialPrompt: claude.BuildCommentPrompt(ctx),
+						PlanMode:      true,
+					}
+					_ = claude.SpawnInTab(cfg)
+				}
 			case m.OpenPRRequested():
 				taskName := m.SelectedTaskName()
 				if taskName != "" && prStore != nil {

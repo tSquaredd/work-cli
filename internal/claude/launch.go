@@ -17,9 +17,23 @@ import (
 
 // LaunchConfig holds the parameters for launching Claude.
 type LaunchConfig struct {
-	Workspace *workspace.Workspace
-	TaskName  string
-	Dirs      []string // Worktree directories (first is primary CWD)
+	Workspace    *workspace.Workspace
+	TaskName     string
+	Dirs         []string         // Worktree directories (first is primary CWD)
+	Comment      *CommentContext  // optional: PR review comment context
+	InitialPrompt string          // optional: initial user message passed via positional arg
+	PlanMode     bool             // if true, launch with --permission-mode plan
+}
+
+// CommentContext holds context for launching Claude to address a PR review comment.
+type CommentContext struct {
+	PRNumber    int
+	FilePath    string // e.g. "src/main/Auth.kt"
+	Line        int
+	DiffHunk    string
+	ThreadBody  string // formatted comment thread
+	WorktreeDir string // worktree directory for the file
+	UserPrompt  string // additional user instructions
 }
 
 // Prepare generates CLAUDE.md files and settings.local.json deny rules
@@ -166,7 +180,7 @@ func BuildSystemPrompt(cfg LaunchConfig) string {
 		fmt.Fprintf(&gitRules, "  - %s: cd %s then run git commands\n", rname, d)
 	}
 
-	return fmt.Sprintf(`WORKTREE CONTEXT (task: %s)
+	prompt := fmt.Sprintf(`WORKTREE CONTEXT (task: %s)
 
 Repositories:
 %s
@@ -181,6 +195,45 @@ Plan preservation:
   - When writing a plan, include the full repo table and git directory rules in the plan itself
   - Context may be compressed between planning and execution — the plan must be self-contained`,
 		cfg.TaskName, repoTable.String(), gitRules.String())
+
+	if cfg.Comment != nil {
+		c := cfg.Comment
+		lineInfo := ""
+		if c.Line > 0 {
+			lineInfo = fmt.Sprintf(" at line %d", c.Line)
+		}
+		prompt += fmt.Sprintf(`
+
+PR REVIEW COMMENT CONTEXT:
+The reviewer left a comment on %s%s:
+
+%s
+
+Comment thread:
+%s
+Address this review comment. The file is at: %s/%s`,
+			c.FilePath, lineInfo, c.DiffHunk, c.ThreadBody, c.WorktreeDir, c.FilePath)
+	}
+
+	return prompt
+}
+
+// BuildCommentPrompt builds an initial user prompt from a CommentContext.
+// The system prompt contains the raw context; this prompt tells Claude what to do.
+func BuildCommentPrompt(ctx *CommentContext) string {
+	lineInfo := ""
+	if ctx.Line > 0 {
+		lineInfo = fmt.Sprintf(" at line %d", ctx.Line)
+	}
+
+	prompt := fmt.Sprintf("Address this PR review comment on %s%s.\n\nThe file is at: %s/%s",
+		ctx.FilePath, lineInfo, ctx.WorktreeDir, ctx.FilePath)
+
+	if ctx.UserPrompt != "" {
+		prompt += "\n\nAdditional instructions:\n" + ctx.UserPrompt
+	}
+
+	return prompt
 }
 
 // Exec replaces the current process with Claude, configured for the given worktrees.
@@ -249,6 +302,12 @@ func SpawnInTab(cfg LaunchConfig) error {
 		}
 	}
 	args = append(args, "--append-system-prompt", fmt.Sprintf("%q", systemPrompt))
+	if cfg.PlanMode {
+		args = append(args, "--permission-mode", "plan")
+	}
+	if cfg.InitialPrompt != "" {
+		args = append(args, fmt.Sprintf("%q", cfg.InitialPrompt))
+	}
 	cmdParts = append(cmdParts, strings.Join(args, " "))
 
 	command := strings.Join(cmdParts, " && ")
