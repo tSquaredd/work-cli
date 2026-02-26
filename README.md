@@ -522,6 +522,64 @@ MIT — Because something THIS INCREDIBLE deserves to be FREE! FOR EVERYONE! FOR
 </details>
 
 <details>
+<summary><strong>The Deflator</strong> — Let's not get carried away here</summary>
+
+## work
+
+Okay, so, I don't want to oversell this. It's a CLI tool. It manages git worktrees for Claude Code. That's... basically it. I know, I know, try to contain yourselves.
+
+You can run multiple Claude sessions at the same time without them messing each other up. Which, to be fair, is something you could also achieve by just being more careful. But sure, this is fine too.
+
+It auto-discovers your repos. That sounds fancy but it really just looks at what folders are in your directory. It's not exactly artificial intelligence. Well, actually, Claude is involved, so I guess technically — no, never mind. Let's move on.
+
+### Installation
+
+```bash
+brew tap tSquaredd/homebrew-tap
+brew install --cask work
+```
+
+That's it. It's not a big deal. Homebrew does all the work. You could also build from source if you want to feel like you accomplished something today:
+
+```bash
+go install github.com/tSquaredd/work-cli/cmd/work@latest
+```
+
+You need Claude Code installed. If you don't have it, this tool is just a fancy way to create git branches. Which, honestly, `git checkout -b` already does. But sure.
+
+### What It Does
+
+Type `work` and it asks if you want to resume something or start fresh. There's a `dashboard` that shows your tasks in two panels. It's... a dashboard. It has panels. The left one has a list, the right one has details. I'm not going to pretend this is groundbreaking UI design.
+
+There's PR management now. You press `p` and it walks you through making a pull request. It pushes your branches for you first, which is nice I suppose, though one could argue it's enabling bad habits. Little icons show up next to your worktrees:
+
+- `○` Open — someone might look at your code eventually
+- `✓` Approved — they said it's fine. Don't read too much into it, they might have been in a hurry
+- `!` Changes requested — don't take it personally. Okay, take it a little personally
+- `●` Merged — congratulations, your code is now everyone's problem
+- `✗` Closed — it's not rejection, it's... no, it's rejection
+
+Press `o` to open a PR in your browser. It keeps track of comments so you know when there are new ones. Whether that's a feature or a source of anxiety depends on your team.
+
+### How It Works
+
+Worktrees go in `.worktrees/`. Your original repos don't get touched, which is probably the most useful thing about this whole operation if we're being honest. Build files get symlinked so things still compile. It's fine. It works.
+
+### Updating
+
+```bash
+work update
+```
+
+It lets you know when there's a new version. Incrementally less disappointing each time, presumably.
+
+### License
+
+MIT — free, which, given everything I've just described, feels about right.
+
+</details>
+
+<details>
 <summary><strong>The Nihilist</strong> — It's a tool. It exists. Whatever.</summary>
 
 ## work
