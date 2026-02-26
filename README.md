@@ -243,89 +243,132 @@ MIT — Free as the air we breathe, given to all without restraint, as a sonnet 
 </details>
 
 <details>
-<summary><strong>The Free Spirit</strong> — Like, the code just flows through you, man</summary>
+<summary><strong>Tim Apple</strong> — Good morning. We think you're going to love this.</summary>
 
-## work — A Worktree Manager for Claude Code, in Harmony with the Universe
+## work
 
-Hey there, beautiful soul. Take a deep breath. Center yourself. Now... imagine a world where your code sessions exist in perfect balance. No conflicts. No chaos. Just pure, parallel harmony.
+### Good morning.
 
-That's `work`.
+We are so excited to be here today.
 
-It uses [git worktrees](https://git-scm.com/docs/git-worktree) — which, if you think about it, are really just the universe's way of letting your code exist in multiple dimensions simultaneously. Each task gets its own branch, its own space, its own *energy*. And they coexist peacefully, man. Like trees in a forest. Actually, they literally are trees. Worktrees. It's all connected.
+You know, at work-cli, we've always believed that developers deserve tools that are not just powerful — but *magical*. Tools that get out of your way and let you do what you do best.
 
-For multi-repo tasks, one Claude session holds space for all of them. One consciousness, many repos. We're all one, you know?
+And today... we think we have something truly extraordinary to share with you.
 
-Zero configuration. It discovers your repos organically, the way nature intended.
+*[pause for effect]*
 
-### Manifesting Your Installation
+This... is `work`.
 
-#### Through the Homebrew Collective
+*[slide: the word "work" in San Francisco font on a white background]*
+
+### The best way to run Claude Code sessions. Ever.
+
+`work` uses [git worktrees](https://git-scm.com/docs/git-worktree) to give every single task its own completely isolated copy of your repository. Its own branch. Its own space. No conflicts. No interference. Just... focus.
+
+And for cross-repo tasks, one Claude session sees everything. One intelligent session, orchestrating across all your repositories seamlessly.
+
+And here's the part I'm really excited about.
+
+*Zero configuration.*
+
+`work` discovers your repos automatically. You just open your terminal, and it's ready. We think that's really great.
+
+### Installation
+
+Now, getting started could not be simpler. And I mean that.
 
 ```bash
 brew tap tSquaredd/homebrew-tap
 brew install --cask work
 ```
 
-If macOS blocks your path — and isn't that just like the system, man — release the quarantine energy:
+That's it. That's the install.
+
+*[audience applause]*
+
+On macOS, you may need to do one more thing — and the team has worked really hard to make this as painless as possible:
 
 ```bash
 xattr -d com.apple.quarantine /opt/homebrew/bin/work    # Apple Silicon
-xattr -d com.apple.quarantine /usr/local/bin/work       # Intel
+xattr -d com.apple.quarantine /usr/local/bin/work       # Intel Mac
 ```
 
-#### Growing It From Source (So Rewarding)
+You can also build from source:
 
 ```bash
 go install github.com/tSquaredd/work-cli/cmd/work@latest
 ```
 
-**You'll also want**: [Claude Code](https://docs.anthropic.com/en/docs/claude-code) — your AI companion on this journey (`npm install -g @anthropic-ai/claude-code`)
+`work` pairs beautifully with [Claude Code](https://docs.anthropic.com/en/docs/claude-code). You're going to need that installed too. (`npm install -g @anthropic-ai/claude-code`)
 
-### The Pathways (Commands)
+### Commands
 
-| Pathway | Where It Leads |
+Let me walk you through what `work` can do. And honestly, I think you're going to be blown away.
+
+| Command | What it does |
 |---------|-------------|
-| `work` | The crossroads — continue your journey or begin a new one |
-| `work dashboard` | Your meditation space — a real-time visualization of all your creative energy |
-| `work list` | Reflect on the state of your worktrees — PUSHED, UNPUSHED, DIRTY, or at peace (CLEAN) |
-| `work pr [task]` | Send your creation out into the world for collective feedback |
-| `work done` | Release a task back into the void with gratitude |
-| `work clean` | Let go of what no longer serves you |
-| `work <repo> <branch>` | Skip the ceremony, follow your intuition directly |
-| `work update` | Receive the latest wisdom from the upstream collective |
+| `work` | Your starting point. Resume a task or start a new one. Beautifully simple. |
+| `work dashboard` | A live, real-time dashboard. Tasks, sessions, PR status — all in one place. |
+| `work list` | See all your worktrees. PUSHED. UNPUSHED. DIRTY. CLEAN. At a glance. |
+| `work pr [task]` | Create pull requests. Right from your terminal. We think this is a breakthrough. |
+| `work done` | Thoughtfully tear down worktrees. It warns you before anything is lost. |
+| `work clean` | Intelligently removes worktrees with no uncommitted changes. |
+| `work <repo> <branch>` | Skip straight to what you need. Instant. |
+| `work update` | Seamless self-updates. The latest and greatest, always within reach. |
 
-### The Dashboard (Your Sacred Space)
+### The Dashboard
 
-The dashboard radiates the energy of your pull requests through sacred symbols:
+Now, I want to spend a moment on the dashboard, because the team has done some *incredible* work here.
 
-- `○` Open — your offering has been placed upon the altar, awaiting the community's gaze
-- `✓` Approved — the circle has blessed your contribution. Namaste
-- `!` Changes requested — a gentle nudge from the universe to refine your craft
-- `●` Merged — your code has become one with the main branch. You are the main branch. We all are
-- `✗` Closed — every ending is a new beginning, friend
+*[demo begins]*
 
-Press `p` to share your work with the community. Press `o` to visit your offering in the browser. It even pushes your branches for you, because `work` believes in supporting your journey, not burdening it.
+It's a two-panel, real-time interface. Tasks on the left. Details on the right. Session indicators. Diff stats. And now — and this is the part I've been waiting to show you — **integrated pull request management**.
 
-### The Way It Flows
+Let me show you what I mean.
 
-- Each task grows its own worktree at `<workspace>/.worktrees/<task-name>/<repo>/`
-- The worktrees exist separately from the original repos — healthy boundaries are important, even in code
-- Your main directory remains in its natural, untouched state
-- Build files are symlinked — connected yet independent, like all of us
+- `○` Open — your PR is out for review
+- `✓` Approved — and just look at that green checkmark
+- `!` Changes requested — you'll know instantly
+- `●` Merged — beautiful purple. Your code is in main.
+- `✗` Closed
 
-### Renewal
+New comments appear highlighted. You always know when someone needs your attention.
+
+Press `p` to create a PR. It pushes your branches, walks you through the title and description, and creates PRs across all your worktrees. In one flow.
+
+Press `o` to open your PR in the browser. It even marks it as viewed. The little details matter, and we've sweated every single one.
+
+*[pause]*
+
+We really think this is going to change the way you work.
+
+### Under the Hood
+
+Now let me tell you a little about the technology.
+
+- Worktrees are created at `<workspace>/.worktrees/<task-name>/<repo>/` — completely separate from your original repos
+- Intelligent deny rules ensure Claude only edits worktree copies. Your main directory is never touched.
+- Build files — `local.properties`, `.env` files — are automatically symlinked. It just works.
+
+And it's all built on standard git. No proprietary formats. No vendor lock-in. Just git, the way it was meant to be used.
+
+### One More Thing
 
 ```bash
 work update
 ```
 
-Growth is a continuous process. The tool lets you know when a new version is ready to emerge.
+`work` tells you when a new version is available. Seamless updates. Always improving.
 
-### License
+Because we believe the best developer tools aren't just something you use once. They're something that grows with you.
 
-MIT — Because knowledge, like love, should be free.
+### Availability
 
-Peace. :v:
+`work` is available today. For free. MIT license.
+
+*[thunderous applause]*
+
+Thank you. We think you're going to love it.
 
 </details>
 
