@@ -4,7 +4,7 @@ import "strings"
 
 // Repo represents a discovered git repository in the workspace.
 type Repo struct {
-	Alias       string // Directory name, e.g. "udisc-android"
+	Alias       string // Directory name, e.g. "my-app-android"
 	Path        string // Absolute path to repo root
 	Prefix      string // Short branch prefix, e.g. "and"
 	Description string // Auto-detected type, e.g. "Android (Kotlin)"
