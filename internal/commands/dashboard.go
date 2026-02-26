@@ -7,6 +7,7 @@ import (
 	"github.com/spf13/cobra"
 	"github.com/tSquaredd/work-cli/internal/service"
 	"github.com/tSquaredd/work-cli/internal/session"
+	"github.com/tSquaredd/work-cli/internal/tui"
 	"github.com/tSquaredd/work-cli/internal/tui/dashboard"
 )
 
@@ -28,8 +29,17 @@ func newDashboardCmd() *cobra.Command {
 			model := dashboard.New(svc)
 
 			p := tea.NewProgram(model, tea.WithAltScreen())
-			_, err = p.Run()
-			return err
+			result, err := p.Run()
+			if err != nil {
+				return err
+			}
+
+			// If user pressed 'n', drop into the new task wizard
+			if m, ok := result.(dashboard.Model); ok && m.NewTaskRequested() {
+				return tui.RunNewTask(ws)
+			}
+
+			return nil
 		},
 	}
 }

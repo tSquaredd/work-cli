@@ -33,6 +33,7 @@ type Model struct {
 	confirming  bool
 	confirmTask string
 	quitting    bool
+	newTask     bool // set when user presses 'n' to start a new task
 }
 
 // New creates a new dashboard model.
@@ -168,6 +169,10 @@ func (m Model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 
 	case "a":
 		return m.handleAttach()
+
+	case "n":
+		m.newTask = true
+		return m, tea.Quit
 
 	case "/":
 		m.filtering = true
@@ -543,4 +548,9 @@ func tickCmd() tea.Cmd {
 	return tea.Tick(refreshInterval, func(t time.Time) tea.Msg {
 		return tickMsg{}
 	})
+}
+
+// NewTaskRequested returns true if the user pressed 'n' to start a new task.
+func (m Model) NewTaskRequested() bool {
+	return m.newTask
 }

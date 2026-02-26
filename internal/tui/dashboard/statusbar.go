@@ -46,7 +46,7 @@ func (m statusBarModel) keybindView() string {
 
 	var binds []string
 
-	binds = append(binds, keyStyle.Render("j/k")+descStyle.Render(":navigate"))
+	binds = append(binds, keyStyle.Render("↑↓")+descStyle.Render(":navigate"))
 
 	if m.hasTask {
 		binds = append(binds, keyStyle.Render("r")+descStyle.Render(":resume"))
@@ -66,6 +66,7 @@ func (m statusBarModel) keybindView() string {
 		binds = append(binds, keyStyle.Render("Enter")+descStyle.Render(":toggle"))
 	}
 
+	binds = append(binds, keyStyle.Render("n")+descStyle.Render(":new"))
 	binds = append(binds, keyStyle.Render("/")+descStyle.Render(":filter"))
 	binds = append(binds, keyStyle.Render("q")+descStyle.Render(":quit"))
 
@@ -75,11 +76,12 @@ func (m statusBarModel) keybindView() string {
 	if m.width > 0 && lipgloss.Width(line) > m.width {
 		// Show abbreviated version
 		var short []string
-		short = append(short, keyStyle.Render("j/k")+descStyle.Render(":nav"))
+		short = append(short, keyStyle.Render("↑↓")+descStyle.Render(":nav"))
 		if m.hasTask {
 			short = append(short, keyStyle.Render("r")+descStyle.Render(":resume"))
 			short = append(short, keyStyle.Render("d")+descStyle.Render(":diff"))
 		}
+		short = append(short, keyStyle.Render("n")+descStyle.Render(":new"))
 		short = append(short, keyStyle.Render("q")+descStyle.Render(":quit"))
 		line = strings.Join(short, sep)
 	}

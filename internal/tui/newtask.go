@@ -19,6 +19,12 @@ type repoConfig struct {
 	BaseBranch string
 }
 
+// RunNewTask runs the multi-step new task wizard.
+// Exported so it can be called from the dashboard command.
+func RunNewTask(ws *workspace.Workspace) error {
+	return runNewTask(ws)
+}
+
 // runNewTask runs the multi-step new task wizard.
 func runNewTask(ws *workspace.Workspace) error {
 	// Step 1: Pick repo(s)
