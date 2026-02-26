@@ -45,22 +45,16 @@ Download from [GitHub Releases](https://github.com/tSquaredd/work-cli/releases) 
 
 | Command | What it does |
 |---------|-------------|
-| `work` | Interactive launcher — resume a task or start a new one |
-| `work dashboard` | Live dashboard showing all tasks, sessions, and PR status |
-| `work list` | Show all active worktrees with status (PUSHED/UNPUSHED/DIRTY/CLEAN) |
-| `work pr [task]` | Create pull requests for a task's worktrees |
-| `work done` | Pick worktrees to tear down (warns before deleting unpushed work) |
-| `work clean` | Auto-remove all worktrees with no uncommitted changes |
-| `work <repo> <branch>` | Direct launch — skip interactive prompts (repo matches by substring) |
+| `work` | Launch the dashboard — live overview of all tasks, sessions, and PR status |
 | `work update` | Self-update to the latest version from GitHub |
 | `work version` | Print version |
 
 ### Dashboard
 
-The live dashboard (`work dashboard`) gives you a real-time overview of all tasks:
+The dashboard launches by default when you run `work`, giving you a real-time overview of all tasks:
 
 ```
-work dashboard                                    2 tasks  1 active
+work                                              2 tasks  1 active
 ──────────────────────────────────────────────────────────────────────
 > auth-refactor *                 │ auth-refactor
     ├── shared-lib      PUSHED  ○ #42     │
@@ -88,7 +82,7 @@ work dashboard                                    2 tasks  1 active
 
 Create and monitor pull requests without leaving the terminal. Requires the [GitHub CLI](https://cli.github.com/) (`gh`).
 
-**Create PRs** — `work pr` or press `p` in the dashboard:
+**Create PRs** — press `p` in the dashboard:
 - Auto-pushes unpushed branches
 - Lets you pick the target branch, title, and description
 - Creates PRs for all eligible worktrees in one go
@@ -113,20 +107,16 @@ All PR features gracefully degrade when `gh` is not installed — the dashboard 
 ```
 $ work
 
-┌──────────────────────────────────────────┐
-│  work · Claude Worktree Manager          │
-│  ~/workspace · 4 repos                   │
-└──────────────────────────────────────────┘
-
-In flight:
-
-  auth-refactor
-  ├── shared-lib       (lib-auth-refactor)     UNPUSHED
-  └── app-android      (and-auth-refactor)     PUSHED
-
-? What would you like to do?
-> Resume an existing task
-  Start a new task
+work                                              2 tasks  1 active
+──────────────────────────────────────────────────────────────────────
+> auth-refactor *                 │ auth-refactor
+    ├── shared-lib      PUSHED  ○ #42     │
+    └── app-android     PUSHED  ✓ #15     │ shared-lib  PUSHED
+                                          │   branch: lib-auth-refactor
+  fix-onboarding                          │   3 files changed, 12 insertions(+)
+    └── app-ios         DIRTY             │   PR #42  ○ OPEN  4 comments (2 new)
+──────────────────────────────────────────────────────────────────────
+↑↓:navigate  r:resume  d:diff  c:clean  a:attach  p:pr  o:open  n:new  q:quit
 ```
 
 ### Updating
@@ -192,14 +182,9 @@ go install github.com/tSquaredd/work-cli/cmd/work@latest
 
 | Command | Its Purpose |
 |---------|-------------|
-| `work` | The interactive stage — resume a prior scene or begin anew |
-| `work dashboard` | A living tableau of all tasks, sessions, and petitions for review |
-| `work list` | Display all worktrees with their standing (PUSHED, UNPUSHED, DIRTY, or CLEAN) |
-| `work pr [task]` | Compose pull requests — thy petition to the court of reviewers |
-| `work done` | Select worktrees for their final curtain (with fair warning ere unpushed work is lost) |
-| `work clean` | Sweep away all worktrees bearing no uncommitted changes, as a groundskeeper clearing the stage |
-| `work <repo> <branch>` | A direct entrance — bypass the prologue entirely, for those who know their part |
+| `work` | The living tableau — a grand stage revealing all tasks, sessions, and petitions for review |
 | `work update` | Receive the latest verse from GitHub, that distant oracle |
+| `work version` | Declare thy version unto the world |
 
 ### Act IV — The Great Theatre (Dashboard)
 
@@ -307,22 +292,17 @@ Let me walk you through what `work` can do. And honestly, I think you're going t
 
 | Command | What it does |
 |---------|-------------|
-| `work` | Your starting point. Resume a task or start a new one. Beautifully simple. |
-| `work dashboard` | A live, real-time dashboard. Tasks, sessions, PR status — all in one place. |
-| `work list` | See all your worktrees. PUSHED. UNPUSHED. DIRTY. CLEAN. At a glance. |
-| `work pr [task]` | Create pull requests. Right from your terminal. We think this is a breakthrough. |
-| `work done` | Thoughtfully tear down worktrees. It warns you before anything is lost. |
-| `work clean` | Intelligently removes worktrees with no uncommitted changes. |
-| `work <repo> <branch>` | Skip straight to what you need. Instant. |
+| `work` | The dashboard. Live, real-time. Tasks, sessions, PR status — all in one place. Beautifully simple. |
 | `work update` | Seamless self-updates. The latest and greatest, always within reach. |
+| `work version` | See which version you're running. Clean. Minimal. |
 
 ### The Dashboard
 
-Now, I want to spend a moment on the dashboard, because the team has done some *incredible* work here.
+Now, I want to spend a moment on the dashboard, because the team has done some *incredible* work here. It launches the moment you type `work`. That's it. No subcommands. No extra steps. Just... the dashboard.
 
 *[demo begins]*
 
-It's a two-panel, real-time interface. Tasks on the left. Details on the right. Session indicators. Diff stats. And now — and this is the part I've been waiting to show you — **integrated pull request management**.
+It's a two-panel, real-time interface. Tasks on the left. Details on the right. Session indicators. Diff stats. And — and this is the part I've been waiting to show you — **integrated pull request management**.
 
 Let me show you what I mean.
 
@@ -404,7 +384,7 @@ You'll need [Claude Code](https://docs.anthropic.com/en/docs/claude-code) instal
 
 ### Throwing a Round
 
-`work` by itself drops you at the first tee pad — pick up where you left off or start fresh. `work dashboard` is the move though. Live leaderboard. Every task, every session, every PR, all right there. Two panels. It's like UDisc Live but for your codebase.
+`work` drops you straight into the dashboard — the live leaderboard. Every task, every session, every PR, all right there. Two panels. It's like UDisc Live but for your codebase.
 
 The dashboard now shows PR status right on each worktree, because nothing is more frustrating than parking your approach 10 feet out and having nobody see it. Little indicators tell you what's up:
 
@@ -477,14 +457,9 @@ go install github.com/tSquaredd/work-cli/cmd/work@latest
 
 | Command | WHAT IT DOES (AMAZINGLY) |
 |---------|-------------|
-| `work` | THE interactive launcher! Resume OR start new! It does BOTH! |
-| `work dashboard` | A LIVE! REAL-TIME! DASHBOARD! With PR status! And session tracking! I CAN'T EVEN! |
-| `work list` | Shows ALL your worktrees with BEAUTIFUL status indicators! |
-| `work pr [task]` | Creates pull requests WITHOUT LEAVING YOUR TERMINAL! The future is NOW! |
-| `work done` | Gracefully tears down worktrees with WARNINGS so you never lose work! SO THOUGHTFUL! |
-| `work clean` | Auto-removes clean worktrees! It's like a ROOMBA for your git workspace! |
-| `work <repo> <branch>` | INSTANT launch! No prompts! Just PURE SPEED! |
+| `work` | A LIVE! REAL-TIME! DASHBOARD! With PR status! And session tracking! I CAN'T EVEN! |
 | `work update` | Updates itself! IT IMPROVES ITSELF! LIKE A SELF-PERFECTING DIAMOND! |
+| `work version` | Prints the version! EVEN THIS IS SOMEHOW EXCITING! |
 
 ### THE DASHBOARD (I NEED TO LIE DOWN)
 
@@ -557,7 +532,7 @@ Requires [Claude Code](https://docs.anthropic.com/en/docs/claude-code). So this 
 
 ### What It Does
 
-You type `work` and you get a menu. Revolutionary stuff. There's a dashboard — `work dashboard` — which shows your tasks in two panels. It's fine. It's a list on the left and details on the right. I've seen this layout in every application since Microsoft Outlook 2003. The innovation here is that it now also shows PR status, which is information you could get from GitHub in about two clicks, but sure, let's put it in the terminal too.
+You type `work` and you get a dashboard. It shows your tasks in two panels. It's a list on the left and details on the right. I've seen this layout in every application since Microsoft Outlook 2003. It also shows PR status, which is information you could get from GitHub in about two clicks, but sure, let's put it in the terminal too.
 
 The PR "management" — and I'm being generous with that word — consists of pressing `p` to create a pull request. It auto-pushes your branches first, which sounds helpful until you realize it's compensating for the fact that you apparently can't be trusted to run `git push`. The tool has a lower opinion of you than your tech lead does.
 
@@ -617,20 +592,15 @@ You'll need Claude Code installed. You probably already know that.
 
 | Command | Description |
 |---------|-------------|
-| `work` | Starts the thing |
-| `work dashboard` | Shows your tasks. Has PR stuff now |
-| `work list` | Lists worktrees |
-| `work pr [task]` | Makes pull requests |
-| `work done` | Removes worktrees |
-| `work clean` | Also removes worktrees, but only the clean ones |
-| `work <repo> <branch>` | Skips the menus |
+| `work` | Opens the dashboard. Shows your tasks. Has PR stuff now |
 | `work update` | Updates |
+| `work version` | Prints the version |
 
 ### Dashboard
 
-There's a dashboard. It shows tasks on the left and details on the right. You can press keys to do things.
+The dashboard shows tasks on the left and details on the right. You can press keys to do things.
 
-It shows PR status now. Little symbols next to worktrees. Circle means open, checkmark means approved, exclamation means changes requested. You get the idea.
+It shows PR status too. Little symbols next to worktrees. Circle means open, checkmark means approved, exclamation means changes requested. You get the idea.
 
 Press `p` to make a PR. Press `o` to open one in your browser. It works.
 
@@ -698,18 +668,13 @@ You also need this [Claude Code](https://docs.anthropic.com/en/docs/claude-code)
 
 | Command | The Deal |
 |---------|-------------|
-| `work` | This is the big one! The main event! You start here and it's like, "what do you wanna do?" and you pick! |
-| `work dashboard` | Dude. DUDE. It's like a mission control but on your computer. Everything's right there. Tasks. Sessions. PR stuff. |
-| `work list` | Shows you all your worktrees and whether they're like, pushed or dirty or whatever. It's very informative. |
-| `work pr [task]` | Makes pull requests without even opening your browser! Which is good because I got a LOT of tabs open. A lot. |
-| `work done` | Cleans up when you're done. It's polite about it too, it asks first if you got unsaved stuff. Very classy. |
-| `work clean` | This one's like a Roomba but for your code. Scoops up all the clean worktrees. Efficient. |
-| `work <repo> <branch>` | Skip the whole menu, just GO. For when you know what you want. Like ordering "the usual." |
+| `work` | Dude. DUDE. It's like a mission control but on your computer. Everything's right there. Tasks. Sessions. PR stuff. |
 | `work update` | Gets you the new new. The latest version. Fresh out the oven. |
+| `work version` | Tells you what version you got. Quick and simple. Like a name tag but for software. |
 
 ### The Dashboard — This Is The Best Part, Seriously
 
-Okay so the dashboard, right? It's got two panels. Left side has your tasks, right side has the details. And now — and this is the part where I need you to sit down — it does PR stuff too!
+Okay so you just type `work` and BAM — dashboard, right? It's got two panels. Left side has your tasks, right side has the details. And — and this is the part where I need you to sit down — it does PR stuff too!
 
 Little symbols pop up next to your worktrees:
 

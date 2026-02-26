@@ -43,18 +43,13 @@ internal/
 │   ├── theme.go                 # Color palette, lipgloss style definitions
 │   └── components.go            # Header, StatusBadge, TaskCard, ProgressLine
 ├── tui/
-│   ├── interactive.go           # Root flow (resume/new choice)
-│   ├── newtask.go               # Multi-step wizard using huh forms
-│   ├── resume.go                # Task selection for resume
-│   └── done.go                  # Teardown with confirmations
+│   ├── newtask.go               # Multi-step wizard using huh forms (dashboard "n")
+│   ├── openpr.go                # PR creation wizard (dashboard "p")
+│   └── dashboard/               # Bubble Tea dashboard (default entry point)
 └── commands/
-    ├── root.go                  # Cobra root command, dispatch
-    ├── list.go                  # work list (non-interactive, lipgloss output)
-    ├── done.go                  # work done (launches TUI)
-    ├── clean.go                 # work clean (non-interactive)
+    ├── root.go                  # Cobra root command — launches dashboard by default
     ├── update.go                # work update + background version check
-    ├── version.go               # work version
-    └── launch.go                # work <repo> <branch> direct launch
+    └── version.go               # work version
 ```
 
 ## Key Design Decisions
@@ -72,7 +67,6 @@ internal/
 - **Result structs**: Complex operations (e.g., `worktree.Create`) return result structs with an `Error` field rather than `(result, error)` tuples.
 - **Git commands**: Always pass `-C dir` flag to run in a specific directory. Never use go-git.
 - **TUI vs non-interactive**: Interactive flows go in `tui/` using huh forms with `ui.HuhTheme()`. Non-interactive output goes in `commands/` using lipgloss directly.
-- **Cobra aliases**: Commands have hidden aliases (e.g., `ls`→`list`, `teardown`→`done`), defined in their respective command files.
 - **Worktree status priority**: DIRTY > PUSHED > UNPUSHED > CLEAN (checked in that order in `InspectStatus()`).
 
 ## Distribution
