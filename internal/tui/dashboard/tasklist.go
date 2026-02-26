@@ -16,7 +16,6 @@ type taskListModel struct {
 	expanded map[int]bool // tracks which tasks have their worktree list expanded
 	width    int
 	height   int
-	filter   string
 }
 
 func newTaskListModel() taskListModel {
@@ -39,22 +38,8 @@ func (m *taskListModel) setTasks(tasks []service.TaskView) {
 	}
 }
 
-func (m *taskListModel) filteredTasks() []service.TaskView {
-	if m.filter == "" {
-		return m.tasks
-	}
-	var filtered []service.TaskView
-	lower := strings.ToLower(m.filter)
-	for _, t := range m.tasks {
-		if strings.Contains(strings.ToLower(t.Name), lower) {
-			filtered = append(filtered, t)
-		}
-	}
-	return filtered
-}
-
 func (m *taskListModel) selected() *service.TaskView {
-	tasks := m.filteredTasks()
+	tasks := m.tasks
 	if m.cursor >= 0 && m.cursor < len(tasks) {
 		return &tasks[m.cursor]
 	}
@@ -68,8 +53,7 @@ func (m *taskListModel) moveUp() {
 }
 
 func (m *taskListModel) moveDown() {
-	tasks := m.filteredTasks()
-	if m.cursor < len(tasks)-1 {
+	if m.cursor < len(m.tasks)-1 {
 		m.cursor++
 	}
 }
@@ -79,18 +63,13 @@ func (m *taskListModel) toggleExpand() {
 }
 
 func (m taskListModel) view() string {
-	tasks := m.filteredTasks()
-	if len(tasks) == 0 {
-		msg := "No active tasks."
-		if m.filter != "" {
-			msg = fmt.Sprintf("No tasks matching %q", m.filter)
-		}
-		return ui.StyleDim.Render("  " + msg)
+	if len(m.tasks) == 0 {
+		return ui.StyleDim.Render("  No active tasks.")
 	}
 
 	var b strings.Builder
 
-	for i, t := range tasks {
+	for i, t := range m.tasks {
 		isCursor := i == m.cursor
 
 		// Task name with session indicator

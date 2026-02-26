@@ -13,8 +13,6 @@ type statusBarModel struct {
 	hasTask   bool
 	hasActive bool
 	showDiff  bool
-	filtering bool
-	filter    string
 	message   string // transient status message
 }
 
@@ -23,10 +21,6 @@ func newStatusBarModel() statusBarModel {
 }
 
 func (m statusBarModel) view() string {
-	if m.filtering {
-		return m.filterView()
-	}
-
 	if m.message != "" {
 		return m.messageView()
 	}
@@ -67,14 +61,12 @@ func (m statusBarModel) keybindView() string {
 	}
 
 	binds = append(binds, keyStyle.Render("n")+descStyle.Render(":new"))
-	binds = append(binds, keyStyle.Render("/")+descStyle.Render(":filter"))
 	binds = append(binds, keyStyle.Render("q")+descStyle.Render(":quit"))
 
 	line := strings.Join(binds, sep)
 
 	// Truncate if too wide
 	if m.width > 0 && lipgloss.Width(line) > m.width {
-		// Show abbreviated version
 		var short []string
 		short = append(short, keyStyle.Render("↑↓")+descStyle.Render(":nav"))
 		if m.hasTask {
@@ -87,20 +79,6 @@ func (m statusBarModel) keybindView() string {
 	}
 
 	return line
-}
-
-func (m statusBarModel) filterView() string {
-	label := lipgloss.NewStyle().
-		Foreground(ui.ColorPrimary).
-		Bold(true).
-		Render("/")
-
-	cursor := lipgloss.NewStyle().
-		Foreground(ui.ColorPrimary).
-		Render("_")
-
-	return label + m.filter + cursor + "  " +
-		ui.StyleDim.Render("(Enter to confirm, Esc to cancel)")
 }
 
 func (m statusBarModel) messageView() string {

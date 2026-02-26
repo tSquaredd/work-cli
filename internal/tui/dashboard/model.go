@@ -28,8 +28,6 @@ type Model struct {
 	height int
 
 	// State
-	filtering   bool
-	filterInput string
 	confirming  bool
 	confirmTask string
 	quitting    bool
@@ -106,11 +104,6 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 func (m Model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	key := msg.String()
 
-	// Handle filter mode
-	if m.filtering {
-		return m.handleFilterKey(msg)
-	}
-
 	// Handle confirmation mode
 	if m.confirming {
 		return m.handleConfirmKey(msg)
@@ -173,55 +166,9 @@ func (m Model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	case "n":
 		m.newTask = true
 		return m, tea.Quit
-
-	case "/":
-		m.filtering = true
-		m.filterInput = ""
-		m.statusBar.filtering = true
-		m.statusBar.filter = ""
-		return m, nil
 	}
 
 	return m, nil
-}
-
-func (m Model) handleFilterKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
-	key := msg.String()
-
-	switch key {
-	case "enter":
-		m.filtering = false
-		m.taskList.filter = m.filterInput
-		m.taskList.cursor = 0
-		m.statusBar.filtering = false
-		m.updateDetail()
-		m.updateStatusBar()
-		return m, nil
-
-	case "esc":
-		m.filtering = false
-		m.filterInput = ""
-		m.taskList.filter = ""
-		m.taskList.cursor = 0
-		m.statusBar.filtering = false
-		m.updateDetail()
-		m.updateStatusBar()
-		return m, nil
-
-	case "backspace":
-		if len(m.filterInput) > 0 {
-			m.filterInput = m.filterInput[:len(m.filterInput)-1]
-			m.statusBar.filter = m.filterInput
-		}
-		return m, nil
-
-	default:
-		if len(key) == 1 {
-			m.filterInput += key
-			m.statusBar.filter = m.filterInput
-		}
-		return m, nil
-	}
 }
 
 func (m Model) handleConfirmKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
@@ -465,7 +412,7 @@ func (m Model) twoPanelView() string {
 	contentHeight := m.height - 4
 
 	// Header
-	header := headerLine(m.taskList.filteredTasks(), m.width)
+	header := headerLine(m.taskList.tasks, m.width)
 
 	// Divider under header
 	divider := lipgloss.NewStyle().
@@ -512,7 +459,7 @@ func (m Model) twoPanelView() string {
 func (m Model) singlePanelView() string {
 	contentHeight := m.height - 4
 
-	header := headerLine(m.taskList.filteredTasks(), m.width)
+	header := headerLine(m.taskList.tasks, m.width)
 	divider := lipgloss.NewStyle().
 		Foreground(ui.ColorMuted).
 		Render(strings.Repeat("─", m.width))
