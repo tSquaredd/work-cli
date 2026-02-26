@@ -8,22 +8,29 @@ Zero configuration. Auto-discovers git repos by scanning child directories.
 
 ## Install
 
-### Homebrew (recommended)
+### Homebrew
 
 ```bash
-brew tap tSquaredd/tap
-brew install work
+brew tap tSquaredd/homebrew-tap
+brew install --cask work
 ```
 
-### Download binary
+On macOS, you may need to remove the quarantine attribute since the binary isn't code-signed:
 
-Download from [GitHub Releases](https://github.com/tSquaredd/work-cli/releases) and place in your PATH.
+```bash
+xattr -d com.apple.quarantine /opt/homebrew/bin/work    # Apple Silicon
+xattr -d com.apple.quarantine /usr/local/bin/work       # Intel Mac
+```
 
 ### Build from source
 
 ```bash
 go install github.com/tSquaredd/work-cli/cmd/work@latest
 ```
+
+### Download binary
+
+Download from [GitHub Releases](https://github.com/tSquaredd/work-cli/releases) and place in your PATH.
 
 **Requires**: [Claude Code](https://docs.anthropic.com/en/docs/claude-code) (`npm install -g @anthropic-ai/claude-code`)
 
