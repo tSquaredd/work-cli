@@ -3,7 +3,7 @@
 Choose your preferred reading experience:
 
 <details>
-<summary><strong>The Straight Shooter</strong> — Just the facts, no nonsense</summary>
+<summary><strong>Joe Friday</strong> — Just the facts, no nonsense</summary>
 
 ## work — Claude Code Worktree Manager
 
@@ -144,7 +144,7 @@ MIT
 </details>
 
 <details>
-<summary><strong>The Bard</strong> — Forsooth, a README most noble</summary>
+<summary><strong>William Shakespeare</strong> — Forsooth, a README most noble</summary>
 
 ## work — A Worktree Manager, Most Noble, for Claude Code
 
@@ -373,7 +373,7 @@ Thank you. We think you're going to love it.
 </details>
 
 <details>
-<summary><strong>The Chain Banger</strong> — Grip it, rip it, ship it</summary>
+<summary><strong>Ace Hyzer</strong> — Grip it, rip it, ship it</summary>
 
 ## work
 
@@ -437,7 +437,7 @@ MIT — Free like a public course. Show up. Throw. Tell your friends.
 </details>
 
 <details>
-<summary><strong>The Hype Beast</strong> — I LITERALLY CANNOT CONTAIN MYSELF</summary>
+<summary><strong>Steve Ballmer</strong> — I LITERALLY CANNOT CONTAIN MYSELF</summary>
 
 ## work — THE MOST REVOLUTIONARY WORKTREE MANAGER IN THE HISTORY OF SOFTWARE DEVELOPMENT AND POSSIBLY THE UNIVERSE
 
@@ -522,7 +522,7 @@ MIT — Because something THIS INCREDIBLE deserves to be FREE! FOR EVERYONE! FOR
 </details>
 
 <details>
-<summary><strong>The Deflator</strong> — Let's not get carried away here</summary>
+<summary><strong>Ben Stein</strong> — Let's not get carried away here</summary>
 
 ## work
 
@@ -580,7 +580,7 @@ MIT — free, which, given everything I've just described, feels about right.
 </details>
 
 <details>
-<summary><strong>The Nihilist</strong> — It's a tool. It exists. Whatever.</summary>
+<summary><strong>Albert Camus</strong> — It's a tool. It exists. Whatever.</summary>
 
 ## work
 
