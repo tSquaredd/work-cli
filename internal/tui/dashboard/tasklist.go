@@ -98,11 +98,23 @@ func (m taskListModel) view() string {
 				repoName := ui.StyleRepoName.Render(padRight(wt.Alias, 16))
 				badge := ui.StatusBadge(wt.Status.String())
 
-				line := fmt.Sprintf("  %s%s%s  %s",
+				// PR indicator
+				prIndicator := ""
+				if wt.PR != nil && wt.PR.Number > 0 {
+					prBadge := ui.PRBadge(wt.PR.State, wt.PR.ReviewStatus)
+					prNum := ui.StyleDim.Render(fmt.Sprintf("#%d", wt.PR.Number))
+					prIndicator = fmt.Sprintf("  %s %s", prBadge, prNum)
+					if wt.PR.NewComments > 0 {
+						prIndicator += ui.StyleWarning.Render(fmt.Sprintf(" (%d)", wt.PR.NewComments))
+					}
+				}
+
+				line := fmt.Sprintf("  %s%s%s  %s%s",
 					prefix_pad(isCursor),
 					ui.StyleTreeBranch.Render(connector),
 					repoName,
 					badge,
+					prIndicator,
 				)
 				b.WriteString(line + "\n")
 			}

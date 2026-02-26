@@ -13,6 +13,7 @@ var (
 	ColorDanger  = lipgloss.AdaptiveColor{Light: "#DC2626", Dark: "#FF8787"} // Red
 	ColorInfo    = lipgloss.AdaptiveColor{Light: "#0891B2", Dark: "#87D7FF"} // Cyan
 	ColorMuted   = lipgloss.AdaptiveColor{Light: "#9CA3AF", Dark: "#6C6C6C"} // Gray
+	ColorMerged  = lipgloss.AdaptiveColor{Light: "#7C3AED", Dark: "#D8B4FE"} // Purple
 )
 
 // Base styles.

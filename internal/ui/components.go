@@ -124,6 +124,27 @@ func Section(title string) string {
 	return StyleBold.Render(title)
 }
 
+// PRBadge renders a colored PR status icon based on state and review status.
+func PRBadge(state, reviewStatus string) string {
+	switch state {
+	case "MERGED":
+		return lipgloss.NewStyle().Foreground(ColorMerged).Render("●")
+	case "CLOSED":
+		return lipgloss.NewStyle().Foreground(ColorMuted).Render("✗")
+	case "OPEN":
+		switch reviewStatus {
+		case "APPROVED":
+			return lipgloss.NewStyle().Foreground(ColorSuccess).Render("✓")
+		case "CHANGES_REQUESTED":
+			return lipgloss.NewStyle().Foreground(ColorWarning).Render("!")
+		default:
+			return lipgloss.NewStyle().Foreground(ColorInfo).Render("○")
+		}
+	default:
+		return lipgloss.NewStyle().Foreground(ColorInfo).Render("○")
+	}
+}
+
 func padRight(s string, width int) string {
 	if len(s) >= width {
 		return s

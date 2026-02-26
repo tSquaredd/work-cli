@@ -3,6 +3,7 @@ package dashboard
 import (
 	"fmt"
 	"os/exec"
+	"runtime"
 	"strings"
 	"time"
 
@@ -19,10 +20,11 @@ const refreshInterval = 5 * time.Second
 
 // Model is the root Bubble Tea model for the dashboard.
 type Model struct {
-	svc       *service.WorkService
-	taskList  taskListModel
-	detail    detailModel
-	statusBar statusBarModel
+	svc        *service.WorkService
+	prEnricher *service.PREnricher
+	taskList   taskListModel
+	detail     detailModel
+	statusBar  statusBarModel
 
 	width  int
 	height int
@@ -32,6 +34,9 @@ type Model struct {
 	confirmTask string
 	quitting    bool
 	newTask     bool // set when user presses 'n' to start a new task
+	openPR      bool // set when user presses 'p' to open PR wizard
+	prTick      int  // counter for throttled PR polling (every 6th tick = 30s)
+	prDiscovered bool // whether initial PR discovery has been done
 }
 
 // New creates a new dashboard model.
@@ -42,6 +47,11 @@ func New(svc *service.WorkService) Model {
 		detail:    newDetailModel(),
 		statusBar: newStatusBarModel(),
 	}
+}
+
+// SetPREnricher configures the PR enricher for live PR status.
+func (m *Model) SetPREnricher(enricher *service.PREnricher) {
+	m.prEnricher = enricher
 }
 
 func (m Model) Init() tea.Cmd {
@@ -63,6 +73,21 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.taskList.setTasks(msg.tasks)
 		m.updateDetail()
 		m.updateStatusBar()
+		// On first load, trigger PR discovery
+		if !m.prDiscovered && m.prEnricher != nil {
+			m.prDiscovered = true
+			return m, discoverPRs(m.prEnricher, msg.tasks)
+		}
+		return m, nil
+
+	case prStatusLoadedMsg:
+		m.taskList.setTasks(msg.tasks)
+		m.updateDetail()
+		m.updateStatusBar()
+		return m, nil
+
+	case openBrowserMsg:
+		openURL(msg.url)
 		return m, nil
 
 	case diffLoadedMsg:
@@ -89,10 +114,13 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m, nil
 
 	case tickMsg:
-		return m, tea.Batch(
-			loadTasks(m.svc),
-			tickCmd(),
-		)
+		m.prTick++
+		cmds := []tea.Cmd{loadTasks(m.svc), tickCmd()}
+		// Poll PR status every 6th tick (30s at 5s interval)
+		if m.prEnricher != nil && m.prTick%6 == 0 {
+			cmds = append(cmds, pollPRStatus(m.prEnricher, m.taskList.tasks))
+		}
+		return m, tea.Batch(cmds...)
 
 	case tea.KeyMsg:
 		return m.handleKey(msg)
@@ -166,6 +194,12 @@ func (m Model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	case "n":
 		m.newTask = true
 		return m, tea.Quit
+
+	case "p":
+		return m.handleOpenPR()
+
+	case "o":
+		return m.handleBrowserOpen()
 	}
 
 	return m, nil
@@ -361,6 +395,59 @@ func (m Model) cleanTask(taskName string) error {
 	return nil
 }
 
+func (m Model) handleOpenPR() (tea.Model, tea.Cmd) {
+	sel := m.taskList.selected()
+	if sel == nil {
+		return m, nil
+	}
+
+	if !m.svc.GHAvailable {
+		m.statusBar.message = "gh CLI not configured — install gh and run: gh auth login"
+		return m, clearMessageCmd()
+	}
+
+	m.openPR = true
+	return m, tea.Quit
+}
+
+func (m Model) handleBrowserOpen() (tea.Model, tea.Cmd) {
+	sel := m.taskList.selected()
+	if sel == nil || !sel.HasPRs {
+		return m, nil
+	}
+
+	// Find first PR URL for the selected task
+	for _, wt := range sel.Worktrees {
+		if wt.PR != nil && wt.PR.URL != "" {
+			// Mark as viewed
+			if m.svc.PRStore != nil {
+				_ = m.svc.PRStore.MarkViewed(sel.Name, wt.Alias, wt.PR.CommentCount)
+			}
+			m.statusBar.message = fmt.Sprintf("Opened PR #%d in browser", wt.PR.Number)
+			return m, tea.Batch(
+				openBrowser(wt.PR.URL),
+				clearMessageCmd(),
+			)
+		}
+	}
+
+	m.statusBar.message = "No PR found for this task"
+	return m, clearMessageCmd()
+}
+
+// OpenPRRequested returns true if the user pressed 'p' to open the PR wizard.
+func (m Model) OpenPRRequested() bool {
+	return m.openPR
+}
+
+// SelectedTaskName returns the name of the currently selected task.
+func (m Model) SelectedTaskName() string {
+	if sel := m.taskList.selected(); sel != nil {
+		return sel.Name
+	}
+	return ""
+}
+
 // Layout and rendering
 
 func (m *Model) updateLayout() {
@@ -389,6 +476,8 @@ func (m *Model) updateStatusBar() {
 	m.statusBar.hasTask = sel != nil
 	m.statusBar.hasActive = sel != nil && sel.HasSession
 	m.statusBar.showDiff = m.detail.showDiff
+	m.statusBar.hasPR = sel != nil && sel.HasPRs
+	m.statusBar.ghAvailable = m.svc.GHAvailable
 }
 
 func (m Model) View() string {
@@ -500,4 +589,18 @@ func tickCmd() tea.Cmd {
 // NewTaskRequested returns true if the user pressed 'n' to start a new task.
 func (m Model) NewTaskRequested() bool {
 	return m.newTask
+}
+
+// openURL opens a URL in the default browser.
+func openURL(url string) {
+	var cmd *exec.Cmd
+	switch runtime.GOOS {
+	case "darwin":
+		cmd = exec.Command("open", url)
+	case "linux":
+		cmd = exec.Command("xdg-open", url)
+	default:
+		cmd = exec.Command("open", url)
+	}
+	_ = cmd.Start()
 }

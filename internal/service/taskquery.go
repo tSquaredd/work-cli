@@ -15,6 +15,9 @@ type TaskView struct {
 	HasSession        bool
 	SessionPID        int
 	SessionLaunchedAt time.Time
+
+	// PR info
+	HasPRs bool
 }
 
 // WorktreeView is an enriched view of a single worktree with diff stats.
@@ -24,6 +27,18 @@ type WorktreeView struct {
 	Status   worktree.Status
 	Dir      string
 	DiffStat string // e.g. "3 files changed, 12 insertions(+), 4 deletions(-)"
+	PR       *PRView
+}
+
+// PRView holds display info about a pull request for a worktree.
+type PRView struct {
+	Number       int
+	Title        string
+	URL          string
+	State        string // "OPEN", "MERGED", "CLOSED"
+	ReviewStatus string // "APPROVED", "CHANGES_REQUESTED", ""
+	CommentCount int
+	NewComments  int // comments since last viewed
 }
 
 // Dirs returns all worktree directories for this task.

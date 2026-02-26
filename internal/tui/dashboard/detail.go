@@ -81,6 +81,24 @@ func (m detailModel) view() string {
 			b.WriteString(ui.StyleDim.Render("  (clean)") + "\n")
 		}
 
+		// PR info
+		if wt.PR != nil && wt.PR.Number > 0 {
+			prBadge := ui.PRBadge(wt.PR.State, wt.PR.ReviewStatus)
+			prState := wt.PR.State
+			if prState == "" {
+				prState = "OPEN"
+			}
+			prLine := fmt.Sprintf("  PR #%d  %s %s", wt.PR.Number, prBadge, prState)
+			if wt.PR.CommentCount > 0 {
+				commentStr := fmt.Sprintf("  %d comments", wt.PR.CommentCount)
+				if wt.PR.NewComments > 0 {
+					commentStr += ui.StyleWarning.Render(fmt.Sprintf(" (%d new)", wt.PR.NewComments))
+				}
+				prLine += ui.StyleDim.Render(commentStr)
+			}
+			b.WriteString(prLine + "\n")
+		}
+
 		b.WriteString("\n")
 	}
 

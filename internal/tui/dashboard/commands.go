@@ -28,6 +28,16 @@ type actionResultMsg struct {
 // tickMsg triggers periodic refresh.
 type tickMsg struct{}
 
+// prStatusLoadedMsg is sent when PR status polling completes.
+type prStatusLoadedMsg struct {
+	tasks []service.TaskView
+}
+
+// openBrowserMsg triggers opening a URL in the browser.
+type openBrowserMsg struct {
+	url string
+}
+
 // Command factories.
 
 // loadTasks fetches tasks from the service in the background.
@@ -49,5 +59,28 @@ func loadDiff(taskName, dir string) tea.Cmd {
 			dir:      dir,
 			diff:     diff,
 		}
+	}
+}
+
+// pollPRStatus refreshes PR data for all tasks with known PRs.
+func pollPRStatus(enricher *service.PREnricher, tasks []service.TaskView) tea.Cmd {
+	return func() tea.Msg {
+		refreshed := enricher.RefreshPRStatus(tasks)
+		return prStatusLoadedMsg{tasks: refreshed}
+	}
+}
+
+// discoverPRs runs initial PR discovery for worktrees without known PRs.
+func discoverPRs(enricher *service.PREnricher, tasks []service.TaskView) tea.Cmd {
+	return func() tea.Msg {
+		discovered := enricher.DiscoverPRs(tasks)
+		return prStatusLoadedMsg{tasks: discovered}
+	}
+}
+
+// openBrowser opens a URL in the default browser.
+func openBrowser(url string) tea.Cmd {
+	return func() tea.Msg {
+		return openBrowserMsg{url: url}
 	}
 }

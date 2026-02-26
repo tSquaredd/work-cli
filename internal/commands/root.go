@@ -59,6 +59,7 @@ func init() {
 		newUpdateCmd(),
 		newDashboardCmd(),
 		newAttachCmd(),
+		newPRCmd(),
 	)
 
 	// Add aliases as hidden commands
