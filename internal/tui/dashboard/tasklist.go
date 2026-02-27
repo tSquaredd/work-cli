@@ -44,6 +44,7 @@ type taskListModel struct {
 	wtCursor int        // focused worktree index when at repo level
 	width    int
 	height   int
+	prError  string // persistent error message from PR list fetch
 }
 
 func newTaskListModel() taskListModel {
@@ -58,7 +59,12 @@ func (m *taskListModel) setTasks(tasks []service.TaskView) {
 func (m *taskListModel) setStandalonePRs(mine, others []service.StandalonePR) {
 	m.myPRs = mine
 	m.otherPRs = others
+	m.prError = "" // clear error on successful load
 	m.buildRows()
+}
+
+func (m *taskListModel) setPRError(msg string) {
+	m.prError = msg
 }
 
 // buildRows recomputes the flat row list from tasks + standalone PRs.
@@ -284,6 +290,18 @@ func (m taskListModel) view() string {
 		case rowOtherPR:
 			b.WriteString(m.renderOtherPRRow(row, isGroupCursor))
 		}
+		b.WriteString("\n")
+	}
+
+	// Show PR error if no standalone PRs loaded
+	if m.prError != "" && len(m.myPRs) == 0 && len(m.otherPRs) == 0 {
+		errText := m.prError
+		maxW := m.width - 6 // account for "  ⚠ " prefix
+		if maxW > 0 && len(errText) > maxW {
+			errText = errText[:maxW-3] + "..."
+		}
+		b.WriteString("\n")
+		b.WriteString(ui.StyleDim.Render("  ⚠ " + errText))
 		b.WriteString("\n")
 	}
 

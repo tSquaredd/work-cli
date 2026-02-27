@@ -110,8 +110,8 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	case standalonePRsLoadedMsg:
 		if msg.err != nil {
-			m.statusBar.message = fmt.Sprintf("PR list error: %s", msg.err)
-			return m, clearMessageCmd()
+			m.taskList.setPRError(fmt.Sprintf("PR list: %s", msg.err))
+			return m, nil
 		}
 		m.myPRs = msg.mine
 		m.otherPRs = msg.others

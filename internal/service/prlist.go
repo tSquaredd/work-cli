@@ -66,9 +66,14 @@ func (s *WorkService) StandalonePRs(tasks []TaskView) (mine []StandalonePR, othe
 		}
 	}
 
-	// If all repos failed and we got no PRs, surface the errors
+	// If all repos failed and we got no PRs, surface the errors.
+	// Deduplicate: if every repo has the same root error, show it once.
 	if len(mine) == 0 && len(others) == 0 && len(errs) > 0 {
-		return nil, nil, fmt.Errorf("PR list failed: %s", strings.Join(errs, "; "))
+		unique := uniqueErrors(errs)
+		if len(unique) == 1 {
+			return nil, nil, fmt.Errorf("%s", unique[0])
+		}
+		return nil, nil, fmt.Errorf("%s", strings.Join(errs, "; "))
 	}
 
 	// Sort by number descending as a reasonable proxy for most recently updated.
@@ -76,4 +81,22 @@ func (s *WorkService) StandalonePRs(tasks []TaskView) (mine []StandalonePR, othe
 	sort.Slice(others, func(i, j int) bool { return others[i].Number > others[j].Number })
 
 	return mine, others, nil
+}
+
+// uniqueErrors strips the "RepoAlias: " prefix from each error and deduplicates.
+func uniqueErrors(errs []string) []string {
+	seen := map[string]bool{}
+	var out []string
+	for _, e := range errs {
+		// Strip "alias: " prefix to compare root causes
+		msg := e
+		if idx := strings.Index(e, ": "); idx >= 0 {
+			msg = e[idx+2:]
+		}
+		if !seen[msg] {
+			seen[msg] = true
+			out = append(out, msg)
+		}
+	}
+	return out
 }

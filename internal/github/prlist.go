@@ -44,14 +44,20 @@ type ghPRListFullJSON struct {
 
 // ListOpenPRs lists all open PRs for the repo at repoDir.
 func ListOpenPRs(repoDir string) ([]PRSummary, error) {
-	cmd := exec.Command("gh", "-C", repoDir, "pr", "list",
+	cmd := exec.Command("gh", "pr", "list",
 		"--state", "open",
 		"--json", "number,title,author,url,headRefName,headRefOid,reviewDecision,comments,additions,deletions,updatedAt",
 		"--limit", "100",
 	)
-	out, err := cmd.Output()
+	cmd.Dir = repoDir
+	out, err := cmd.CombinedOutput()
 	if err != nil {
-		return nil, fmt.Errorf("gh pr list: %w", err)
+		// Take only the first line of output to avoid flooding with gh's usage text
+		errLine := strings.TrimSpace(string(out))
+		if i := strings.Index(errLine, "\n"); i >= 0 {
+			errLine = strings.TrimSpace(errLine[:i])
+		}
+		return nil, fmt.Errorf("gh pr list: %s: %w", errLine, err)
 	}
 
 	var items []ghPRListFullJSON
