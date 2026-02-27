@@ -33,6 +33,14 @@ type Model struct {
 	comments     commentViewModel
 	showComments bool
 
+	// Diff viewer overlay
+	diffView     diffViewModel
+	showDiffView bool
+
+	// Standalone PRs
+	myPRs    []service.StandalonePR
+	otherPRs []service.StandalonePR
+
 	// State
 	confirming  bool
 	confirmTask string
@@ -50,6 +58,7 @@ func New(svc *service.WorkService) Model {
 		taskList:  newTaskListModel(),
 		detail:    newDetailModel(),
 		statusBar: newStatusBarModel(),
+		diffView:  newDiffViewModel(),
 	}
 }
 
@@ -77,10 +86,17 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.taskList.setTasks(msg.tasks)
 		m.updateDetail()
 		m.updateStatusBar()
-		// On first load, trigger PR discovery
+		var cmds []tea.Cmd
+		// On first load, trigger PR discovery and standalone PR fetch
 		if !m.prDiscovered && m.prEnricher != nil {
 			m.prDiscovered = true
-			return m, discoverPRs(m.prEnricher, msg.tasks)
+			cmds = append(cmds, discoverPRs(m.prEnricher, msg.tasks))
+		}
+		if m.svc.GHAvailable {
+			cmds = append(cmds, loadStandalonePRs(m.svc, msg.tasks))
+		}
+		if len(cmds) > 0 {
+			return m, tea.Batch(cmds...)
 		}
 		return m, nil
 
@@ -88,6 +104,38 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.taskList.setTasks(msg.tasks)
 		m.updateDetail()
 		m.updateStatusBar()
+		return m, nil
+
+	case standalonePRsLoadedMsg:
+		if msg.err == nil {
+			m.myPRs = msg.mine
+			m.otherPRs = msg.others
+			m.taskList.setStandalonePRs(msg.mine, msg.others)
+			m.updateDetail()
+			m.updateStatusBar()
+		}
+		return m, nil
+
+	case prDiffLoadedMsg:
+		if msg.err != nil {
+			m.statusBar.message = fmt.Sprintf("Error loading diff: %s", msg.err)
+			return m, clearMessageCmd()
+		}
+		m.diffView.setData(msg.repoDir, msg.repoAlias, msg.prNumber, msg.prTitle, msg.headSHA, msg.isMine, msg.diff)
+		m.diffView.width = m.width
+		m.diffView.height = m.height
+		m.showDiffView = true
+		m.updateStatusBar()
+		return m, nil
+
+	case reviewCommentPostedMsg:
+		if msg.err != nil {
+			m.diffView.message = fmt.Sprintf("Error: %s", msg.err)
+		} else {
+			m.diffView.message = "Comment posted"
+			m.diffView.mode = diffViewBrowse
+			m.diffView.commentBuf = nil
+		}
 		return m, nil
 
 	case openBrowserMsg:
@@ -150,6 +198,10 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		if m.prEnricher != nil && m.prTick%6 == 0 {
 			cmds = append(cmds, pollPRStatus(m.prEnricher, m.taskList.tasks))
 		}
+		// Refresh standalone PRs every 12th tick (60s)
+		if m.svc.GHAvailable && m.prTick%12 == 0 {
+			cmds = append(cmds, loadStandalonePRs(m.svc, m.taskList.tasks))
+		}
 		return m, tea.Batch(cmds...)
 
 	case tea.KeyMsg:
@@ -167,12 +219,17 @@ func (m Model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		return m.handleConfirmKey(msg)
 	}
 
+	// Handle diff viewer overlay
+	if m.showDiffView {
+		return m.handleDiffViewKey(msg)
+	}
+
 	// Handle comment viewer overlay
 	if m.showComments {
 		return m.handleCommentKey(msg)
 	}
 
-	// Handle diff scroll mode
+	// Handle diff scroll mode (inline detail panel diff)
 	if m.detail.showDiff {
 		switch key {
 		case "j", "down":
@@ -191,6 +248,12 @@ func (m Model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 			return m, tea.Quit
 		}
 		return m, nil
+	}
+
+	// Check if cursor is on a standalone PR
+	row := m.taskList.selectedRow()
+	if row != nil && (row.kind == rowMyPR || row.kind == rowOtherPR) {
+		return m.handleStandalonePRKey(msg)
 	}
 
 	switch key {
@@ -220,6 +283,9 @@ func (m Model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	case "d":
 		return m.handleDiff()
 
+	case "D":
+		return m.handlePRReview()
+
 	case "c":
 		return m.handleClean()
 
@@ -241,6 +307,125 @@ func (m Model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	}
 
 	return m, nil
+}
+
+func (m Model) handleStandalonePRKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
+	key := msg.String()
+
+	switch key {
+	case "q", "ctrl+c":
+		m.quitting = true
+		return m, tea.Quit
+
+	case "j", "down":
+		m.taskList.moveDown()
+		m.updateDetail()
+		m.updateStatusBar()
+		return m, nil
+
+	case "k", "up":
+		m.taskList.moveUp()
+		m.updateDetail()
+		m.updateStatusBar()
+		return m, nil
+
+	case "d":
+		return m.handleStandalonePRDiff()
+
+	case "m":
+		return m.handleStandalonePRComments()
+
+	case "o":
+		return m.handleStandalonePRBrowserOpen()
+
+	case "n":
+		m.newTask = true
+		return m, tea.Quit
+	}
+
+	return m, nil
+}
+
+func (m Model) handleDiffViewKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
+	key := msg.String()
+
+	// Comment post
+	if m.diffView.mode == diffViewCommenting && key == "enter" {
+		body := m.diffView.commentBody()
+		if body == "" {
+			m.diffView.mode = diffViewBrowse
+			m.diffView.commentBuf = nil
+			return m, nil
+		}
+		filePath, startLine, endLine, ok := m.diffView.selectedFileAndLines()
+		if !ok {
+			m.diffView.message = "Could not determine file/line for comment"
+			m.diffView.mode = diffViewBrowse
+			return m, nil
+		}
+		m.diffView.mode = diffViewBrowse
+		return m, postReviewComment(
+			m.diffView.repoDir, m.diffView.prNumber, m.diffView.headSHA,
+			filePath, startLine, endLine, "RIGHT", body,
+		)
+	}
+
+	// Claude launch
+	if m.diffView.mode == diffViewClaudePrompt && key == "enter" {
+		filePath, startLine, endLine, ok := m.diffView.selectedFileAndLines()
+		if !ok {
+			filePath = ""
+			startLine = 0
+			endLine = 0
+		}
+		m.diffView.claudeRequested = true
+		m.diffView.claudeContext = &claudeReviewContext{
+			FilePath:  filePath,
+			StartLine: startLine,
+			EndLine:   endLine,
+			DiffText:  m.diffView.selectedDiffText(),
+		}
+		return m, tea.Quit
+	}
+
+	// Close diff viewer
+	if key == "esc" && m.diffView.mode == diffViewBrowse {
+		m.showDiffView = false
+		m.updateStatusBar()
+		return m, nil
+	}
+	if key == "q" && (m.diffView.mode == diffViewBrowse || m.diffView.mode == diffViewSelecting) {
+		m.quitting = true
+		return m, tea.Quit
+	}
+
+	// Open in browser
+	if key == "o" && m.diffView.mode == diffViewBrowse {
+		pr := m.findDiffViewPR()
+		if pr != nil && pr.URL != "" {
+			return m, openBrowser(pr.URL)
+		}
+		return m, nil
+	}
+
+	// Delegate to diffView
+	m.diffView.handleKey(key)
+	return m, nil
+}
+
+// findDiffViewPR locates the StandalonePR matching the current diff viewer context.
+func (m Model) findDiffViewPR() *service.StandalonePR {
+	for i := range m.myPRs {
+		if m.myPRs[i].Number == m.diffView.prNumber && m.myPRs[i].RepoDir == m.diffView.repoDir {
+			return &m.myPRs[i]
+		}
+	}
+	for i := range m.otherPRs {
+		if m.otherPRs[i].Number == m.diffView.prNumber && m.otherPRs[i].RepoDir == m.diffView.repoDir {
+			return &m.otherPRs[i]
+		}
+	}
+	return nil
 }
 
 func (m Model) handleConfirmKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
@@ -357,6 +542,58 @@ func (m Model) handleDiff() (tea.Model, tea.Cmd) {
 	}
 
 	return m, nil
+}
+
+func (m Model) handlePRReview() (tea.Model, tea.Cmd) {
+	sel := m.taskList.selected()
+	if sel == nil || !sel.HasPRs {
+		return m, nil
+	}
+
+	// Find first worktree with a PR
+	for _, wt := range sel.Worktrees {
+		if wt.PR != nil && wt.PR.Number > 0 {
+			m.statusBar.message = fmt.Sprintf("Loading PR #%d diff...", wt.PR.Number)
+			headSHA := "" // will be fetched in the diff loader if needed
+			return m, loadPRDiff(wt.Dir, wt.PR.Number, wt.Alias, wt.PR.Title, headSHA, true)
+		}
+	}
+
+	return m, nil
+}
+
+func (m Model) handleStandalonePRDiff() (tea.Model, tea.Cmd) {
+	pr := m.taskList.selectedStandalonePR()
+	if pr == nil {
+		return m, nil
+	}
+
+	m.statusBar.message = fmt.Sprintf("Loading PR #%d diff...", pr.Number)
+	return m, loadPRDiff(pr.RepoDir, pr.Number, pr.RepoAlias, pr.Title, pr.HeadSHA, pr.IsMine)
+}
+
+func (m Model) handleStandalonePRComments() (tea.Model, tea.Cmd) {
+	pr := m.taskList.selectedStandalonePR()
+	if pr == nil {
+		return m, nil
+	}
+
+	m.statusBar.message = fmt.Sprintf("Loading comments for PR #%d...", pr.Number)
+	taskName := fmt.Sprintf("pr-%d", pr.Number) // synthetic task name for comment viewer
+	return m, loadComments(taskName, pr.RepoAlias, pr.RepoDir, pr.Number)
+}
+
+func (m Model) handleStandalonePRBrowserOpen() (tea.Model, tea.Cmd) {
+	pr := m.taskList.selectedStandalonePR()
+	if pr == nil || pr.URL == "" {
+		return m, nil
+	}
+
+	m.statusBar.message = fmt.Sprintf("Opened PR #%d in browser", pr.Number)
+	return m, tea.Batch(
+		openBrowser(pr.URL),
+		clearMessageCmd(),
+	)
 }
 
 func (m Model) handleClean() (tea.Model, tea.Cmd) {
@@ -601,6 +838,11 @@ func (m Model) handleCommentKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 				}
 			}
 		}
+		// Also check standalone PRs
+		pr := m.taskList.selectedStandalonePR()
+		if pr != nil && pr.URL != "" {
+			return m, openBrowser(pr.URL)
+		}
 		return m, nil
 	case "esc", "m":
 		m.showComments = false
@@ -646,6 +888,40 @@ func (m Model) CommentWorktreeDir() string {
 	return m.comments.worktreeDir
 }
 
+// DiffViewClaudeRequested returns true if the user pressed 'C' in the diff viewer to launch Claude.
+func (m Model) DiffViewClaudeRequested() bool {
+	return m.diffView.claudeRequested
+}
+
+// DiffViewClaudeContext returns the review context for Claude launch from the diff viewer.
+func (m Model) DiffViewClaudeContext() *claude.ReviewContext {
+	if !m.diffView.claudeRequested || m.diffView.claudeContext == nil {
+		return nil
+	}
+	ctx := m.diffView.claudeContext
+	return &claude.ReviewContext{
+		PRNumber:   m.diffView.prNumber,
+		PRTitle:    m.diffView.prTitle,
+		RepoAlias:  m.diffView.repoAlias,
+		RepoDir:    m.diffView.repoDir,
+		FilePath:   ctx.FilePath,
+		StartLine:  ctx.StartLine,
+		EndLine:    ctx.EndLine,
+		DiffLines:  ctx.DiffText,
+		UserPrompt: m.diffView.claudeUserPrompt(),
+	}
+}
+
+// DiffViewIsMine returns whether the diff viewer PR belongs to the current user.
+func (m Model) DiffViewIsMine() bool {
+	return m.diffView.isMine
+}
+
+// DiffViewRepoDir returns the repo directory from the diff viewer.
+func (m Model) DiffViewRepoDir() string {
+	return m.diffView.repoDir
+}
+
 // OpenPRRequested returns true if the user pressed 'p' to open the PR wizard.
 func (m Model) OpenPRRequested() bool {
 	return m.openPR
@@ -679,18 +955,40 @@ func (m *Model) updateLayout() {
 }
 
 func (m *Model) updateDetail() {
-	m.detail.setTask(m.taskList.selected())
+	row := m.taskList.selectedRow()
+	if row == nil {
+		m.detail.setTask(nil)
+		return
+	}
+
+	switch row.kind {
+	case rowTask, rowWorktree:
+		m.detail.setTask(m.taskList.selected())
+	case rowMyPR, rowOtherPR:
+		m.detail.setStandalonePR(m.taskList.selectedStandalonePR())
+	default:
+		m.detail.setTask(nil)
+	}
 }
 
 func (m *Model) updateStatusBar() {
 	sel := m.taskList.selected()
+	row := m.taskList.selectedRow()
+
 	m.statusBar.hasTask = sel != nil
 	m.statusBar.hasActive = sel != nil && sel.HasSession
 	m.statusBar.showDiff = m.detail.showDiff
 	m.statusBar.showComments = m.showComments
+	m.statusBar.showDiffView = m.showDiffView
 	m.statusBar.hasPR = sel != nil && sel.HasPRs
 	m.statusBar.hasComments = sel != nil && m.hasComments(sel)
 	m.statusBar.ghAvailable = m.svc.GHAvailable
+
+	// Check if cursor is on a standalone PR
+	m.statusBar.standalonePR = row != nil && (row.kind == rowMyPR || row.kind == rowOtherPR)
+	if m.showDiffView {
+		m.statusBar.diffViewMode = m.diffView.mode
+	}
 }
 
 func (m *Model) hasComments(sel *service.TaskView) bool {
@@ -709,6 +1007,11 @@ func (m Model) View() string {
 
 	if m.width == 0 {
 		return "Loading..."
+	}
+
+	// Fullscreen diff viewer overlay
+	if m.showDiffView {
+		return m.diffView.view()
 	}
 
 	// Fullscreen comment viewer overlay

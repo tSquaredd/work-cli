@@ -9,15 +9,18 @@ import (
 
 // statusBarModel manages the bottom bar — context-sensitive keybind display.
 type statusBarModel struct {
-	width        int
-	hasTask      bool
-	hasActive    bool
-	hasPR        bool
-	hasComments  bool
-	ghAvailable  bool
-	showDiff     bool
-	showComments bool
-	message      string // transient status message
+	width          int
+	hasTask        bool
+	hasActive      bool
+	hasPR          bool
+	hasComments    bool
+	ghAvailable    bool
+	showDiff       bool
+	showComments   bool
+	showDiffView   bool
+	diffViewMode   diffViewMode
+	standalonePR   bool // cursor is on a standalone PR row
+	message        string // transient status message
 }
 
 func newStatusBarModel() statusBarModel {
@@ -44,6 +47,18 @@ func (m statusBarModel) keybindView() string {
 
 	var binds []string
 
+	// Standalone PR selected
+	if m.standalonePR {
+		binds = append(binds, keyStyle.Render("↑↓")+descStyle.Render(":navigate"))
+		binds = append(binds, keyStyle.Render("d")+descStyle.Render(":diff"))
+		if m.ghAvailable {
+			binds = append(binds, keyStyle.Render("m")+descStyle.Render(":comments"))
+		}
+		binds = append(binds, keyStyle.Render("o")+descStyle.Render(":open"))
+		binds = append(binds, keyStyle.Render("q")+descStyle.Render(":quit"))
+		return strings.Join(binds, sep)
+	}
+
 	binds = append(binds, keyStyle.Render("↑↓")+descStyle.Render(":navigate"))
 
 	if m.hasTask {
@@ -68,6 +83,7 @@ func (m statusBarModel) keybindView() string {
 		}
 		if m.hasPR {
 			binds = append(binds, keyStyle.Render("o")+descStyle.Render(":open"))
+			binds = append(binds, keyStyle.Render("D")+descStyle.Render(":review"))
 		}
 		if m.hasComments && m.hasPR {
 			binds = append(binds, keyStyle.Render("m")+descStyle.Render(":comments"))

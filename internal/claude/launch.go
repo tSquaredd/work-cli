@@ -23,6 +23,8 @@ type LaunchConfig struct {
 	Comment      *CommentContext  // optional: PR review comment context
 	InitialPrompt string          // optional: initial user message passed via positional arg
 	PlanMode     bool             // if true, launch with --permission-mode plan
+	ReviewMode   bool             // if true, launch for PR review exploration (no plan mode)
+	ReviewCtx    *ReviewContext   // optional: selected diff lines + PR context
 }
 
 // CommentContext holds context for launching Claude to address a PR review comment.
@@ -34,6 +36,46 @@ type CommentContext struct {
 	ThreadBody  string // formatted comment thread
 	WorktreeDir string // worktree directory for the file
 	UserPrompt  string // additional user instructions
+}
+
+// ReviewContext holds context for launching Claude from the diff viewer.
+type ReviewContext struct {
+	PRNumber  int
+	PRTitle   string
+	RepoAlias string
+	RepoDir   string
+	FilePath  string
+	StartLine int
+	EndLine   int
+	DiffLines string // the selected diff text
+	UserPrompt string
+}
+
+// BuildReviewPrompt builds a system prompt for PR review exploration.
+func BuildReviewPrompt(ctx *ReviewContext) string {
+	lineRange := fmt.Sprintf("line %d", ctx.StartLine)
+	if ctx.EndLine > ctx.StartLine {
+		lineRange = fmt.Sprintf("lines %d-%d", ctx.StartLine, ctx.EndLine)
+	}
+
+	prompt := fmt.Sprintf(`You are helping review PR #%d "%s" in %s.
+
+The user selected code from %s (%s):
+
+%s
+The user's question:
+%s
+
+You can use gh commands to interact with this PR:
+- gh pr diff %d — view full diff
+- gh pr view %d — view PR details`,
+		ctx.PRNumber, ctx.PRTitle, ctx.RepoAlias,
+		ctx.FilePath, lineRange,
+		ctx.DiffLines,
+		ctx.UserPrompt,
+		ctx.PRNumber, ctx.PRNumber)
+
+	return prompt
 }
 
 // Prepare generates CLAUDE.md files and settings.local.json deny rules
@@ -213,6 +255,10 @@ Comment thread:
 %s
 Address this review comment. The file is at: %s/%s`,
 			c.FilePath, lineInfo, c.DiffHunk, c.ThreadBody, c.WorktreeDir, c.FilePath)
+	}
+
+	if cfg.ReviewCtx != nil {
+		prompt += "\n\n" + BuildReviewPrompt(cfg.ReviewCtx)
 	}
 
 	return prompt

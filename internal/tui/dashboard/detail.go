@@ -12,13 +12,14 @@ import (
 
 // detailModel manages the right panel — worktree detail and diff rendering.
 type detailModel struct {
-	task      *service.TaskView
-	diffText  string     // full diff when loaded
-	diffDir   string     // which worktree dir the diff is for
-	showDiff  bool       // whether to show full diff
-	scroll    int        // scroll offset for diff view
-	width     int
-	height    int
+	task         *service.TaskView
+	standalonePR *service.StandalonePR
+	diffText     string // full diff when loaded
+	diffDir      string // which worktree dir the diff is for
+	showDiff     bool   // whether to show full diff
+	scroll       int    // scroll offset for diff view
+	width        int
+	height       int
 }
 
 func newDetailModel() detailModel {
@@ -33,6 +34,16 @@ func (m *detailModel) setTask(task *service.TaskView) {
 		m.scroll = 0
 	}
 	m.task = task
+	m.standalonePR = nil
+}
+
+func (m *detailModel) setStandalonePR(pr *service.StandalonePR) {
+	m.standalonePR = pr
+	m.task = nil
+	m.diffText = ""
+	m.diffDir = ""
+	m.showDiff = false
+	m.scroll = 0
 }
 
 func (m *detailModel) scrollUp() {
@@ -46,6 +57,10 @@ func (m *detailModel) scrollDown() {
 }
 
 func (m detailModel) view() string {
+	if m.standalonePR != nil {
+		return m.renderStandalonePR()
+	}
+
 	if m.task == nil {
 		return ui.StyleDim.Render("  Select a task to view details")
 	}
@@ -114,6 +129,45 @@ func (m detailModel) view() string {
 		b.WriteString(ui.StyleDim.Render(
 			fmt.Sprintf("  PID %d · %s ago", m.task.SessionPID, formatDuration(elapsed)),
 		) + "\n")
+	}
+
+	return b.String()
+}
+
+func (m detailModel) renderStandalonePR() string {
+	pr := m.standalonePR
+	var b strings.Builder
+
+	// Title
+	title := lipgloss.NewStyle().
+		Foreground(ui.ColorInfo).
+		Bold(true).
+		Render(fmt.Sprintf("PR #%d · %s", pr.Number, pr.Title))
+	b.WriteString(title + "\n")
+	b.WriteString(ui.StyleRepoName.Render(pr.RepoAlias) + "\n\n")
+
+	// Author
+	b.WriteString(fmt.Sprintf("Author: %s\n", lipgloss.NewStyle().Bold(true).Render("@"+pr.Author)))
+
+	// Branch
+	b.WriteString(fmt.Sprintf("Branch: %s\n", ui.StyleBranchName.Render(pr.HeadBranch)))
+
+	// Review status
+	reviewBadge := ui.PRBadge("OPEN", pr.ReviewStatus)
+	reviewLabel := "OPEN"
+	if pr.ReviewStatus != "" {
+		reviewLabel = pr.ReviewStatus
+	}
+	b.WriteString(fmt.Sprintf("Review: %s %s\n", reviewBadge, reviewLabel))
+
+	// Stats
+	b.WriteString(fmt.Sprintf("\n%s %s\n",
+		ui.StyleSuccess.Render(fmt.Sprintf("+%d", pr.Additions)),
+		ui.StyleDanger.Render(fmt.Sprintf("-%d", pr.Deletions)),
+	))
+
+	if pr.CommentCount > 0 {
+		b.WriteString(ui.StyleDim.Render(fmt.Sprintf("\n%d comments", pr.CommentCount)) + "\n")
 	}
 
 	return b.String()

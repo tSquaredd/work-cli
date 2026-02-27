@@ -1,6 +1,8 @@
 package dashboard
 
 import (
+	"fmt"
+
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/tSquaredd/work-cli/internal/github"
 	"github.com/tSquaredd/work-cli/internal/service"
@@ -83,6 +85,79 @@ func discoverPRs(enricher *service.PREnricher, tasks []service.TaskView) tea.Cmd
 func openBrowser(url string) tea.Cmd {
 	return func() tea.Msg {
 		return openBrowserMsg{url: url}
+	}
+}
+
+// standalonePRsLoadedMsg is sent when standalone PRs have been fetched.
+type standalonePRsLoadedMsg struct {
+	mine   []service.StandalonePR
+	others []service.StandalonePR
+	err    error
+}
+
+// prDiffLoadedMsg is sent when a PR diff has been fetched for the diff viewer.
+type prDiffLoadedMsg struct {
+	repoDir   string
+	repoAlias string
+	prNumber  int
+	prTitle   string
+	headSHA   string
+	isMine    bool
+	diff      string
+	err       error
+}
+
+// reviewCommentPostedMsg is sent after a review comment is posted from the diff viewer.
+type reviewCommentPostedMsg struct {
+	err error
+}
+
+// loadStandalonePRs fetches standalone PRs across all workspace repos.
+func loadStandalonePRs(svc *service.WorkService, tasks []service.TaskView) tea.Cmd {
+	return func() tea.Msg {
+		mine, others, err := svc.StandalonePRs(tasks)
+		return standalonePRsLoadedMsg{mine: mine, others: others, err: err}
+	}
+}
+
+// loadPRDiff fetches the diff for a specific PR. If headSHA is empty, it fetches it.
+func loadPRDiff(repoDir string, prNumber int, repoAlias, prTitle, headSHA string, isMine bool) tea.Cmd {
+	return func() tea.Msg {
+		// Fetch headSHA if not provided
+		if headSHA == "" {
+			sha, err := github.GetPRHeadSHA(repoDir, prNumber)
+			if err == nil {
+				headSHA = sha
+			}
+		}
+
+		diff, err := github.GetPRDiff(repoDir, prNumber)
+		return prDiffLoadedMsg{
+			repoDir:   repoDir,
+			repoAlias: repoAlias,
+			prNumber:  prNumber,
+			prTitle:   prTitle,
+			headSHA:   headSHA,
+			isMine:    isMine,
+			diff:      diff,
+			err:       err,
+		}
+	}
+}
+
+// postReviewComment posts a review comment from the diff viewer.
+func postReviewComment(repoDir string, prNumber int, commitID, filePath string, startLine, endLine int, side, body string) tea.Cmd {
+	return func() tea.Msg {
+		var err error
+		if startLine == endLine {
+			err = github.CreateReviewComment(repoDir, prNumber, commitID, filePath, endLine, side, body)
+		} else {
+			err = github.CreateMultiLineReviewComment(repoDir, prNumber, commitID, filePath, startLine, endLine, side, body)
+		}
+		if err != nil {
+			return reviewCommentPostedMsg{err: fmt.Errorf("posting comment: %w", err)}
+		}
+		return reviewCommentPostedMsg{}
 	}
 }
 

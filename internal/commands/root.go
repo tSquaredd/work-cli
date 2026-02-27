@@ -79,6 +79,21 @@ var rootCmd = &cobra.Command{
 			}
 
 			switch {
+			case m.DiffViewClaudeRequested():
+				ctx := m.DiffViewClaudeContext()
+				if ctx != nil {
+					isMine := m.DiffViewIsMine()
+					cfg := claude.LaunchConfig{
+						Workspace:     ws,
+						TaskName:      fmt.Sprintf("review-pr-%d", ctx.PRNumber),
+						Dirs:          []string{ctx.RepoDir},
+						ReviewMode:    true,
+						ReviewCtx:     ctx,
+						InitialPrompt: claude.BuildReviewPrompt(ctx),
+						PlanMode:      isMine,
+					}
+					_ = claude.SpawnInTab(cfg)
+				}
 			case m.CommentClaudeRequested():
 				ctx := m.CommentClaudeContext()
 				taskName := m.CommentTaskName()
