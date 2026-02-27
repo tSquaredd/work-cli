@@ -124,10 +124,16 @@ func CleanRemove(repoDir, wtDir string) error {
 	return nil
 }
 
-// CleanupTaskDir removes an empty task directory.
+// CleanupTaskDir removes the task directory and all remaining contents.
 func CleanupTaskDir(wsRoot, taskName string) {
 	taskDir := filepath.Join(wsRoot, ".worktrees", taskName)
-	_ = os.Remove(taskDir) // Only succeeds if empty
+	worktreesBase := filepath.Join(wsRoot, ".worktrees")
+	absTask, err1 := filepath.Abs(taskDir)
+	absBase, err2 := filepath.Abs(worktreesBase)
+	if err1 != nil || err2 != nil || !strings.HasPrefix(absTask, absBase+string(filepath.Separator)) {
+		return
+	}
+	_ = os.RemoveAll(taskDir)
 }
 
 // WorktreeDir returns the standard worktree path for a repo/task combination.

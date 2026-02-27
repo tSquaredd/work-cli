@@ -3,6 +3,7 @@ package dashboard
 import (
 	"strings"
 
+	"github.com/charmbracelet/bubbles/spinner"
 	"github.com/charmbracelet/lipgloss"
 	"github.com/tSquaredd/work-cli/internal/ui"
 )
@@ -22,10 +23,15 @@ type statusBarModel struct {
 	standalonePR   bool // cursor is on a standalone PR row
 	inRepoLevel    bool // cursor is inside a task's worktree list
 	message        string // transient status message
+	spinner        spinner.Model
+	loading        bool
 }
 
 func newStatusBarModel() statusBarModel {
-	return statusBarModel{}
+	s := spinner.New()
+	s.Spinner = spinner.MiniDot
+	s.Style = lipgloss.NewStyle().Foreground(ui.ColorPrimary)
+	return statusBarModel{spinner: s}
 }
 
 func (m statusBarModel) view() string {
@@ -117,5 +123,8 @@ func (m statusBarModel) keybindView() string {
 }
 
 func (m statusBarModel) messageView() string {
+	if m.loading {
+		return m.spinner.View() + " " + ui.StyleDim.Render(m.message)
+	}
 	return ui.StyleDim.Render(m.message)
 }

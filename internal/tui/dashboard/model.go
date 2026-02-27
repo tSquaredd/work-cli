@@ -7,6 +7,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/charmbracelet/bubbles/spinner"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
 	"github.com/tSquaredd/work-cli/internal/claude"
@@ -118,6 +119,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m, nil
 
 	case prDiffLoadedMsg:
+		m.statusBar.loading = false
 		if msg.err != nil {
 			m.statusBar.message = fmt.Sprintf("Error loading diff: %s", msg.err)
 			return m, clearMessageCmd()
@@ -153,6 +155,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m, nil
 
 	case commentsLoadedMsg:
+		m.statusBar.loading = false
 		if msg.err != nil {
 			m.statusBar.message = fmt.Sprintf("Error loading comments: %s", msg.err)
 			return m, clearMessageCmd()
@@ -165,6 +168,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m, nil
 
 	case commentRepliedMsg:
+		m.statusBar.loading = false
 		if msg.err != nil {
 			m.comments.replyErr = msg.err.Error()
 			m.comments.mode = commentModeBrowse
@@ -179,6 +183,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		)
 
 	case actionResultMsg:
+		m.statusBar.loading = false
 		m.statusBar.message = msg.message
 		m.confirming = false
 		m.confirmTask = ""
@@ -189,6 +194,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		)
 
 	case clearMessageMsg:
+		m.statusBar.loading = false
 		m.statusBar.message = ""
 		return m, nil
 
@@ -204,6 +210,14 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			cmds = append(cmds, loadStandalonePRs(m.svc, m.taskList.tasks))
 		}
 		return m, tea.Batch(cmds...)
+
+	case spinner.TickMsg:
+		if m.statusBar.loading {
+			var cmd tea.Cmd
+			m.statusBar.spinner, cmd = m.statusBar.spinner.Update(msg)
+			return m, cmd
+		}
+		return m, nil
 
 	case tea.KeyMsg:
 		return m.handleKey(msg)
@@ -446,13 +460,14 @@ func (m Model) handleConfirmKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		m.confirming = false
 		m.confirmTask = ""
 		m.statusBar.message = fmt.Sprintf("Cleaning %s...", taskName)
-		return m, func() tea.Msg {
+		m.statusBar.loading = true
+		return m, tea.Batch(m.statusBar.spinner.Tick, func() tea.Msg {
 			err := m.cleanTask(taskName)
 			if err != nil {
 				return actionResultMsg{message: fmt.Sprintf("Error: %s", err), isError: true}
 			}
 			return actionResultMsg{message: fmt.Sprintf("Cleaned %s", taskName)}
-		}
+		})
 
 	case "n", "N", "esc":
 		m.confirming = false
@@ -571,8 +586,9 @@ func (m Model) handlePRReview() (tea.Model, tea.Cmd) {
 	for _, wt := range sel.Worktrees {
 		if wt.PR != nil && wt.PR.Number > 0 {
 			m.statusBar.message = fmt.Sprintf("Loading PR #%d diff...", wt.PR.Number)
+			m.statusBar.loading = true
 			headSHA := "" // will be fetched in the diff loader if needed
-			return m, loadPRDiff(wt.Dir, wt.PR.Number, wt.Alias, wt.PR.Title, headSHA, true)
+			return m, tea.Batch(m.statusBar.spinner.Tick, loadPRDiff(wt.Dir, wt.PR.Number, wt.Alias, wt.PR.Title, headSHA, true))
 		}
 	}
 
@@ -586,7 +602,8 @@ func (m Model) handleStandalonePRDiff() (tea.Model, tea.Cmd) {
 	}
 
 	m.statusBar.message = fmt.Sprintf("Loading PR #%d diff...", pr.Number)
-	return m, loadPRDiff(pr.RepoDir, pr.Number, pr.RepoAlias, pr.Title, pr.HeadSHA, pr.IsMine)
+	m.statusBar.loading = true
+	return m, tea.Batch(m.statusBar.spinner.Tick, loadPRDiff(pr.RepoDir, pr.Number, pr.RepoAlias, pr.Title, pr.HeadSHA, pr.IsMine))
 }
 
 func (m Model) handleStandalonePRComments() (tea.Model, tea.Cmd) {
@@ -596,8 +613,9 @@ func (m Model) handleStandalonePRComments() (tea.Model, tea.Cmd) {
 	}
 
 	m.statusBar.message = fmt.Sprintf("Loading comments for PR #%d...", pr.Number)
+	m.statusBar.loading = true
 	taskName := fmt.Sprintf("pr-%d", pr.Number) // synthetic task name for comment viewer
-	return m, loadComments(taskName, pr.RepoAlias, pr.RepoDir, pr.Number)
+	return m, tea.Batch(m.statusBar.spinner.Tick, loadComments(taskName, pr.RepoAlias, pr.RepoDir, pr.Number))
 }
 
 func (m Model) handleStandalonePRBrowserOpen() (tea.Model, tea.Cmd) {
@@ -758,7 +776,8 @@ func (m Model) handleComments() (tea.Model, tea.Cmd) {
 	// Auto-select if only one PR
 	entry := prs[0]
 	m.statusBar.message = fmt.Sprintf("Loading comments for PR #%d...", entry.prNumber)
-	return m, loadComments(sel.Name, entry.alias, entry.dir, entry.prNumber)
+	m.statusBar.loading = true
+	return m, tea.Batch(m.statusBar.spinner.Tick, loadComments(sel.Name, entry.alias, entry.dir, entry.prNumber))
 }
 
 func (m Model) handleCommentKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
@@ -806,11 +825,12 @@ func (m Model) handleCommentKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 			}
 			m.comments.mode = commentModeBrowse
 			m.statusBar.message = "Posting reply..."
+			m.statusBar.loading = true
 			if m.comments.isOnThread() {
 				commentID := m.comments.lastCommentID()
-				return m, replyToComment(m.comments.worktreeDir, m.comments.prNumber, commentID, body)
+				return m, tea.Batch(m.statusBar.spinner.Tick, replyToComment(m.comments.worktreeDir, m.comments.prNumber, commentID, body))
 			}
-			return m, replyToIssueComment(m.comments.worktreeDir, m.comments.prNumber, body)
+			return m, tea.Batch(m.statusBar.spinner.Tick, replyToIssueComment(m.comments.worktreeDir, m.comments.prNumber, body))
 		case "backspace":
 			if len(m.comments.replyBuf) > 0 {
 				m.comments.replyBuf = m.comments.replyBuf[:len(m.comments.replyBuf)-1]
