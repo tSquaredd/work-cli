@@ -120,10 +120,10 @@ func (m *diffViewModel) handleKey(key string) (consumed bool) {
 
 func (m *diffViewModel) handleBrowseKey(key string) bool {
 	switch key {
-	case "j", "down":
+	case "down":
 		m.moveDown()
 		return true
-	case "k", "up":
+	case "up":
 		m.moveUp()
 		return true
 	case "g":

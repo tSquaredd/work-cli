@@ -232,10 +232,10 @@ func (m Model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	// Handle diff scroll mode (inline detail panel diff)
 	if m.detail.showDiff {
 		switch key {
-		case "j", "down":
+		case "down":
 			m.detail.scrollDown()
 			return m, nil
-		case "k", "up":
+		case "up":
 			m.detail.scrollUp()
 			return m, nil
 		case "d", "esc":
@@ -261,20 +261,28 @@ func (m Model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		m.quitting = true
 		return m, tea.Quit
 
-	case "j", "down":
+	case "down":
 		m.taskList.moveDown()
 		m.updateDetail()
 		m.updateStatusBar()
 		return m, nil
 
-	case "k", "up":
+	case "up":
 		m.taskList.moveUp()
 		m.updateDetail()
 		m.updateStatusBar()
 		return m, nil
 
-	case "enter":
-		m.taskList.toggleExpand()
+	case "enter", "right":
+		m.taskList.enterWorktrees()
+		m.updateDetail()
+		m.updateStatusBar()
+		return m, nil
+
+	case "left":
+		m.taskList.exitWorktrees()
+		m.updateDetail()
+		m.updateStatusBar()
 		return m, nil
 
 	case "r":
@@ -317,13 +325,13 @@ func (m Model) handleStandalonePRKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		m.quitting = true
 		return m, tea.Quit
 
-	case "j", "down":
+	case "down":
 		m.taskList.moveDown()
 		m.updateDetail()
 		m.updateStatusBar()
 		return m, nil
 
-	case "k", "up":
+	case "up":
 		m.taskList.moveUp()
 		m.updateDetail()
 		m.updateStatusBar()
@@ -535,7 +543,12 @@ func (m Model) handleDiff() (tea.Model, tea.Cmd) {
 		return m, nil
 	}
 
-	// Load diff for first worktree (or all combined)
+	// If at repo level, diff the focused worktree
+	if wt := m.taskList.focusedWorktree(); wt != nil {
+		return m, loadDiff(sel.Name, wt.Dir)
+	}
+
+	// Otherwise diff the first worktree
 	if len(sel.Worktrees) > 0 {
 		dir := sel.Worktrees[0].Dir
 		return m, loadDiff(sel.Name, dir)
@@ -807,10 +820,10 @@ func (m Model) handleCommentKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 
 	// Browse mode
 	switch key {
-	case "n", "j", "down":
+	case "n", "down":
 		m.comments.next()
 		return m, nil
-	case "p", "k", "up":
+	case "p", "up":
 		m.comments.prev()
 		return m, nil
 	case "J":
@@ -986,6 +999,7 @@ func (m *Model) updateStatusBar() {
 
 	// Check if cursor is on a standalone PR
 	m.statusBar.standalonePR = row != nil && (row.kind == rowMyPR || row.kind == rowOtherPR)
+	m.statusBar.inRepoLevel = m.taskList.navLevel == navRepo
 	if m.showDiffView {
 		m.statusBar.diffViewMode = m.diffView.mode
 	}

@@ -26,32 +26,32 @@ type listRow struct {
 	prIdx   int // index into myPRs or otherPRs
 }
 
+type navLevel int
+
+const (
+	navGroup navLevel = iota // cursor on a task/PR group row
+	navRepo                  // cursor inside a task's worktree list
+)
+
 // taskListModel manages the left panel — task list with cursor and session indicators.
 type taskListModel struct {
 	tasks    []service.TaskView
 	myPRs    []service.StandalonePR
 	otherPRs []service.StandalonePR
-	rows     []listRow   // computed flat list
-	cursor   int         // index into rows
-	expanded map[int]bool // tracks which tasks have their worktree list expanded
+	rows     []listRow  // computed flat list
+	cursor   int        // index into rows (always a group-level row)
+	navLevel navLevel   // whether cursor is at group or repo level
+	wtCursor int        // focused worktree index when at repo level
 	width    int
 	height   int
 }
 
 func newTaskListModel() taskListModel {
-	return taskListModel{
-		expanded: make(map[int]bool),
-	}
+	return taskListModel{}
 }
 
 func (m *taskListModel) setTasks(tasks []service.TaskView) {
 	m.tasks = tasks
-	// Expand all by default
-	for i := range tasks {
-		if _, ok := m.expanded[i]; !ok {
-			m.expanded[i] = true
-		}
-	}
 	m.buildRows()
 }
 
@@ -67,10 +67,8 @@ func (m *taskListModel) buildRows() {
 
 	for i, t := range m.tasks {
 		rows = append(rows, listRow{kind: rowTask, taskIdx: i})
-		if m.expanded[i] {
-			for j := range t.Worktrees {
-				rows = append(rows, listRow{kind: rowWorktree, taskIdx: i, wtIdx: j})
-			}
+		for j := range t.Worktrees {
+			rows = append(rows, listRow{kind: rowWorktree, taskIdx: i, wtIdx: j})
 		}
 	}
 
@@ -90,13 +88,28 @@ func (m *taskListModel) buildRows() {
 
 	m.rows = rows
 
-	// Clamp cursor
+	// Clamp cursor to a valid group row
 	if len(rows) > 0 {
 		if m.cursor >= len(rows) {
 			m.cursor = len(rows) - 1
 		}
-		// Skip section headers
-		m.skipHeaders(1)
+		m.skipToGroupRow(1)
+
+		// Clamp wtCursor if at repo level
+		if m.navLevel == navRepo {
+			if row := m.selectedRow(); row != nil && row.kind == rowTask {
+				wts := m.tasks[row.taskIdx].Worktrees
+				if len(wts) == 0 {
+					m.navLevel = navGroup
+					m.wtCursor = 0
+				} else if m.wtCursor >= len(wts) {
+					m.wtCursor = len(wts) - 1
+				}
+			} else {
+				m.navLevel = navGroup
+				m.wtCursor = 0
+			}
+		}
 	}
 }
 
@@ -143,46 +156,107 @@ func (m *taskListModel) selectedStandalonePR() *service.StandalonePR {
 }
 
 func (m *taskListModel) moveUp() {
+	if m.navLevel == navRepo {
+		// Move between worktrees within the current task
+		if m.wtCursor > 0 {
+			m.wtCursor--
+		}
+		return
+	}
 	if m.cursor > 0 {
 		m.cursor--
-		m.skipHeaders(-1)
+		m.skipToGroupRow(-1)
 	}
 }
 
 func (m *taskListModel) moveDown() {
+	if m.navLevel == navRepo {
+		// Move between worktrees within the current task
+		row := m.selectedRow()
+		if row != nil && row.kind == rowTask {
+			wts := m.tasks[row.taskIdx].Worktrees
+			if m.wtCursor < len(wts)-1 {
+				m.wtCursor++
+			}
+		}
+		return
+	}
 	if m.cursor < len(m.rows)-1 {
 		m.cursor++
-		m.skipHeaders(1)
+		m.skipToGroupRow(1)
 	}
 }
 
-// skipHeaders advances cursor past section headers in the given direction.
-func (m *taskListModel) skipHeaders(dir int) {
-	for m.cursor >= 0 && m.cursor < len(m.rows) && m.rows[m.cursor].kind == rowSectionHeader {
+// skipToGroupRow advances cursor past section headers and worktree rows in the given direction.
+func (m *taskListModel) skipToGroupRow(dir int) {
+	for m.cursor >= 0 && m.cursor < len(m.rows) {
+		k := m.rows[m.cursor].kind
+		if k != rowSectionHeader && k != rowWorktree {
+			break
+		}
 		m.cursor += dir
 	}
 	// Clamp
 	if m.cursor < 0 {
 		m.cursor = 0
-		// If first row is a header, skip forward
-		if len(m.rows) > 0 && m.rows[0].kind == rowSectionHeader {
-			m.cursor = 1
+		// If first row is skippable, find next valid row
+		for m.cursor < len(m.rows) {
+			k := m.rows[m.cursor].kind
+			if k != rowSectionHeader && k != rowWorktree {
+				break
+			}
+			m.cursor++
 		}
 	}
 	if m.cursor >= len(m.rows) {
 		m.cursor = len(m.rows) - 1
+		// Walk back if we landed on a skippable row
+		for m.cursor >= 0 {
+			k := m.rows[m.cursor].kind
+			if k != rowSectionHeader && k != rowWorktree {
+				break
+			}
+			m.cursor--
+		}
+		if m.cursor < 0 {
+			m.cursor = 0
+		}
 	}
 }
 
-func (m *taskListModel) toggleExpand() {
-	if m.cursor < 0 || m.cursor >= len(m.rows) {
+// enterWorktrees switches to repo-level navigation within the current task.
+func (m *taskListModel) enterWorktrees() {
+	row := m.selectedRow()
+	if row == nil || row.kind != rowTask {
 		return
 	}
-	row := m.rows[m.cursor]
-	if row.kind == rowTask {
-		m.expanded[row.taskIdx] = !m.expanded[row.taskIdx]
-		m.buildRows()
+	if len(m.tasks[row.taskIdx].Worktrees) == 0 {
+		return
 	}
+	m.navLevel = navRepo
+	m.wtCursor = 0
+}
+
+// exitWorktrees returns to group-level navigation.
+func (m *taskListModel) exitWorktrees() {
+	m.navLevel = navGroup
+	m.wtCursor = 0
+}
+
+// focusedWorktree returns the specific worktree when at repo level, nil otherwise.
+func (m *taskListModel) focusedWorktree() *service.WorktreeView {
+	if m.navLevel != navRepo {
+		return nil
+	}
+	row := m.selectedRow()
+	if row == nil || row.kind != rowTask {
+		return nil
+	}
+	wts := m.tasks[row.taskIdx].Worktrees
+	if m.wtCursor < 0 || m.wtCursor >= len(wts) {
+		return nil
+	}
+	return &wts[m.wtCursor]
 }
 
 func (m taskListModel) view() string {
@@ -193,19 +267,22 @@ func (m taskListModel) view() string {
 	var b strings.Builder
 
 	for i, row := range m.rows {
-		isCursor := i == m.cursor
+		isGroupCursor := i == m.cursor && m.navLevel == navGroup
 
 		switch row.kind {
 		case rowTask:
-			b.WriteString(m.renderTaskRow(row, isCursor))
+			b.WriteString(m.renderTaskRow(row, isGroupCursor))
 		case rowWorktree:
-			b.WriteString(m.renderWorktreeRow(row, isCursor))
+			// Show worktree cursor when at repo level and this worktree matches wtCursor
+			isWtCursor := m.navLevel == navRepo && m.rows[m.cursor].kind == rowTask &&
+				row.taskIdx == m.rows[m.cursor].taskIdx && row.wtIdx == m.wtCursor
+			b.WriteString(m.renderWorktreeRow(row, isWtCursor))
 		case rowSectionHeader:
 			b.WriteString(m.renderSectionHeader(row))
 		case rowMyPR:
-			b.WriteString(m.renderMyPRRow(row, isCursor))
+			b.WriteString(m.renderMyPRRow(row, isGroupCursor))
 		case rowOtherPR:
-			b.WriteString(m.renderOtherPRRow(row, isCursor))
+			b.WriteString(m.renderOtherPRRow(row, isGroupCursor))
 		}
 		b.WriteString("\n")
 	}
@@ -254,12 +331,12 @@ func (m taskListModel) renderWorktreeRow(row listRow, isCursor bool) string {
 		}
 	}
 
-	pad := "  "
+	pad := "    "
 	if isCursor {
-		pad = "  "
+		pad = "  " + ui.StylePrimary.Render("> ")
 	}
 
-	return fmt.Sprintf("  %s%s%s  %s%s",
+	return fmt.Sprintf("%s%s%s  %s%s",
 		pad,
 		ui.StyleTreeBranch.Render(connector),
 		repoName,
