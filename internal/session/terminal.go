@@ -29,35 +29,25 @@ func DetectTerminal() TabOpener {
 	}
 }
 
-// ghosttyOpener opens windows in Ghostty via its CLI or AppleScript.
+// ghosttyOpener opens windows in Ghostty via AppleScript (running) or CLI (cold start).
 type ghosttyOpener struct{}
 
 func (o *ghosttyOpener) OpenTab(command, title string) (int, error) {
-	// Set terminal title via escape sequence, then run the command
 	fullCmd := fmt.Sprintf("printf '\\033]0;%s\\007' && %s", title, command)
 
-	// Try ghostty CLI first (gives us PID)
-	ghosttyPath, _ := exec.LookPath("ghostty")
-	if ghosttyPath == "" {
-		// Check common macOS app bundle path
-		appPath := "/Applications/Ghostty.app/Contents/MacOS/ghostty"
-		if _, err := os.Stat(appPath); err == nil {
-			ghosttyPath = appPath
-		}
+	if isGhosttyRunning() {
+		return o.openViaAppleScript(fullCmd)
 	}
+	return o.openViaCLI(fullCmd)
+}
 
-	if ghosttyPath != "" {
-		shell := os.Getenv("SHELL")
-		if shell == "" {
-			shell = "/bin/zsh"
-		}
-		cmd := exec.Command(ghosttyPath, "-e", shell, "-c", fullCmd)
-		if err := cmd.Start(); err == nil {
-			return cmd.Process.Pid, nil
-		}
-	}
+// isGhosttyRunning checks if a Ghostty process is already running.
+func isGhosttyRunning() bool {
+	return exec.Command("pgrep", "-x", "Ghostty").Run() == nil
+}
 
-	// Fallback: AppleScript — open new window and type command
+// openViaAppleScript opens a new window in the running Ghostty instance.
+func (o *ghosttyOpener) openViaAppleScript(fullCmd string) (int, error) {
 	script := fmt.Sprintf(`
 tell application "Ghostty"
 	activate
@@ -65,7 +55,7 @@ end tell
 delay 0.3
 tell application "System Events"
 	tell process "Ghostty"
-		keystroke "n" using command down
+		click menu item "New Window" of menu "File" of menu bar 1
 	end tell
 end tell
 delay 0.5
@@ -75,14 +65,38 @@ tell application "System Events"
 		key code 36
 	end tell
 end tell
-`, command)
+`, fullCmd)
 
 	cmd := exec.Command("osascript", "-e", script)
 	if err := cmd.Run(); err != nil {
-		return 0, fmt.Errorf("Ghostty launch failed: %w", err)
+		return 0, fmt.Errorf("Ghostty AppleScript failed: %w", err)
+	}
+	return 0, nil
+}
+
+// openViaCLI cold-starts Ghostty via its CLI binary.
+func (o *ghosttyOpener) openViaCLI(fullCmd string) (int, error) {
+	ghosttyPath, _ := exec.LookPath("ghostty")
+	if ghosttyPath == "" {
+		appPath := "/Applications/Ghostty.app/Contents/MacOS/ghostty"
+		if _, err := os.Stat(appPath); err == nil {
+			ghosttyPath = appPath
+		}
 	}
 
-	return 0, nil
+	if ghosttyPath == "" {
+		return 0, fmt.Errorf("Ghostty not found in PATH or /Applications")
+	}
+
+	shell := os.Getenv("SHELL")
+	if shell == "" {
+		shell = "/bin/zsh"
+	}
+	cmd := exec.Command(ghosttyPath, "-e", shell, "-c", fullCmd)
+	if err := cmd.Start(); err != nil {
+		return 0, fmt.Errorf("Ghostty CLI launch failed: %w", err)
+	}
+	return cmd.Process.Pid, nil
 }
 
 func (o *ghosttyOpener) FocusTab(identifier string) error {
