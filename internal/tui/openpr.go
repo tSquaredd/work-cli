@@ -12,7 +12,8 @@ import (
 )
 
 // RunOpenPR pushes unpushed worktrees and opens the browser for PR creation.
-func RunOpenPR(ws *workspace.Workspace, taskName string) error {
+// If worktreeAlias is non-empty, only that worktree is processed.
+func RunOpenPR(ws *workspace.Workspace, taskName string, worktreeAlias string) error {
 	// Pre-flight: check gh CLI availability
 	if !github.IsAvailable() {
 		fmt.Println()
@@ -30,8 +31,23 @@ func RunOpenPR(ws *workspace.Workspace, taskName string) error {
 		return fmt.Errorf("task %q not found", taskName)
 	}
 
+	// Filter to a single worktree if alias is specified
+	worktrees := task.Worktrees
+	if worktreeAlias != "" {
+		for _, wt := range task.Worktrees {
+			if wt.Alias == worktreeAlias {
+				worktrees = []service.WorktreeView{wt}
+				break
+			}
+		}
+	}
+
 	fmt.Println()
-	fmt.Printf("%s %s\n", ui.Section("Create PR for:"), ui.StyleInfo.Render(taskName))
+	if worktreeAlias != "" {
+		fmt.Printf("%s %s / %s\n", ui.Section("Create PR for:"), ui.StyleInfo.Render(taskName), ui.StyleInfo.Render(worktreeAlias))
+	} else {
+		fmt.Printf("%s %s\n", ui.Section("Create PR for:"), ui.StyleInfo.Render(taskName))
+	}
 	fmt.Println()
 
 	// Show worktrees and their push status
@@ -43,7 +59,7 @@ func RunOpenPR(ws *workspace.Workspace, taskName string) error {
 	var eligible []eligibleWT
 	var skipped []string
 
-	for _, wt := range task.Worktrees {
+	for _, wt := range worktrees {
 		status := wt.Status
 
 		switch status {

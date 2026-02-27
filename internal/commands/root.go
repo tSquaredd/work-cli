@@ -112,7 +112,7 @@ var rootCmd = &cobra.Command{
 			case m.OpenPRRequested():
 				taskName := m.SelectedTaskName()
 				if taskName != "" {
-					_ = tui.RunOpenPR(ws, taskName)
+					_ = tui.RunOpenPR(ws, taskName, m.SelectedWorktreeAlias())
 				}
 			case m.NewTaskRequested():
 				_ = tui.RunNewTaskSpawn(ws)

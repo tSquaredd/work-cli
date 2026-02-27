@@ -46,7 +46,8 @@ type Model struct {
 	confirmTask string
 	quitting    bool
 	newTask     bool // set when user presses 'n' to start a new task
-	openPR      bool // set when user presses 'p' to open PR wizard
+	openPR               bool   // set when user presses 'p' to open PR wizard
+	openPRWorktreeAlias  string // when at repo level, only open PR for this worktree
 	prTick      int  // counter for throttled PR polling (every 6th tick = 30s)
 	prDiscovered bool // whether initial PR discovery has been done
 }
@@ -694,6 +695,11 @@ func (m Model) handleOpenPR() (tea.Model, tea.Cmd) {
 		return m, clearMessageCmd()
 	}
 
+	// At repo level, only open PR for the focused worktree
+	if wt := m.taskList.focusedWorktree(); wt != nil {
+		m.openPRWorktreeAlias = wt.Alias
+	}
+
 	m.openPR = true
 	return m, tea.Quit
 }
@@ -946,6 +952,12 @@ func (m Model) SelectedTaskName() string {
 		return sel.Name
 	}
 	return ""
+}
+
+// SelectedWorktreeAlias returns the worktree alias to scope PR creation to,
+// or "" if all worktrees should be included.
+func (m Model) SelectedWorktreeAlias() string {
+	return m.openPRWorktreeAlias
 }
 
 // Layout and rendering

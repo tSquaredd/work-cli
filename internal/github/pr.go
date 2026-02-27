@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"os/exec"
+	"strings"
 	"time"
 )
 
@@ -52,7 +53,11 @@ func prInfoFromJSON(j ghPRJSON) PRInfo {
 // CreateInBrowser opens the browser to create a new PR for the current branch.
 func CreateInBrowser(dir string) error {
 	cmd := exec.Command("gh", "-C", dir, "pr", "create", "--web")
-	return cmd.Run()
+	out, err := cmd.CombinedOutput()
+	if err != nil {
+		return fmt.Errorf("gh pr create --web: %s: %w", strings.TrimSpace(string(out)), err)
+	}
+	return nil
 }
 
 // FindPRForBranch finds the PR associated with the current branch in the given directory.
