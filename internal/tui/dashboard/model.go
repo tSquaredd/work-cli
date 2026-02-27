@@ -443,6 +443,9 @@ func (m Model) handleConfirmKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	switch key {
 	case "y", "Y":
 		taskName := m.confirmTask
+		m.confirming = false
+		m.confirmTask = ""
+		m.statusBar.message = fmt.Sprintf("Cleaning %s...", taskName)
 		return m, func() tea.Msg {
 			err := m.cleanTask(taskName)
 			if err != nil {
