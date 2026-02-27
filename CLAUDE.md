@@ -67,7 +67,7 @@ internal/
 - **Result structs**: Complex operations (e.g., `worktree.Create`) return result structs with an `Error` field rather than `(result, error)` tuples.
 - **Git commands**: Always pass `-C dir` flag to run in a specific directory. Never use go-git.
 - **TUI vs non-interactive**: Interactive flows go in `tui/` using huh forms with `ui.HuhTheme()`. Non-interactive output goes in `commands/` using lipgloss directly.
-- **Worktree status priority**: DIRTY > PUSHED > UNPUSHED > CLEAN (checked in that order in `InspectStatus()`).
+- **Worktree status priority**: PUSHED > UNPUSHED > DIRTY > CLEAN (checked in that order in `InspectStatus()`).
 
 ## Distribution
 

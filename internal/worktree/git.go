@@ -56,16 +56,18 @@ func Branch(dir string) string {
 	return b
 }
 
-// InspectStatus determines the worktree status: DIRTY > PUSHED > UNPUSHED > CLEAN.
+// InspectStatus determines the worktree status: PUSHED > UNPUSHED > DIRTY > CLEAN.
 func InspectStatus(dir string) Status {
-	if IsDirty(dir) {
-		return StatusDirty
-	}
-	if IsPushed(dir) && !HasUnpushed(dir) {
+	pushed := IsPushed(dir)
+	unpushed := HasUnpushed(dir)
+	if pushed && !unpushed {
 		return StatusPushed
 	}
-	if HasUnpushed(dir) {
+	if unpushed {
 		return StatusUnpushed
+	}
+	if IsDirty(dir) {
+		return StatusDirty
 	}
 	return StatusClean
 }

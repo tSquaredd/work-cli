@@ -109,13 +109,15 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m, nil
 
 	case standalonePRsLoadedMsg:
-		if msg.err == nil {
-			m.myPRs = msg.mine
-			m.otherPRs = msg.others
-			m.taskList.setStandalonePRs(msg.mine, msg.others)
-			m.updateDetail()
-			m.updateStatusBar()
+		if msg.err != nil {
+			m.statusBar.message = fmt.Sprintf("PR list error: %s", msg.err)
+			return m, clearMessageCmd()
 		}
+		m.myPRs = msg.mine
+		m.otherPRs = msg.others
+		m.taskList.setStandalonePRs(msg.mine, msg.others)
+		m.updateDetail()
+		m.updateStatusBar()
 		return m, nil
 
 	case prDiffLoadedMsg:

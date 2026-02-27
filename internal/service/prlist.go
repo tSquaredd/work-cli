@@ -1,7 +1,9 @@
 package service
 
 import (
+	"fmt"
 	"sort"
+	"strings"
 
 	"github.com/tSquaredd/work-cli/internal/github"
 )
@@ -23,38 +25,23 @@ type StandalonePR struct {
 	IsMine       bool
 }
 
-// StandalonePRs collects open PRs across all workspace repos that aren't associated
-// with any worktree. Returns them split into "mine" (user's PRs) and "others".
+// StandalonePRs collects all open PRs across workspace repos.
+// Returns them split into "mine" (user's PRs) and "others".
 func (s *WorkService) StandalonePRs(tasks []TaskView) (mine []StandalonePR, others []StandalonePR, err error) {
 	currentUser, err := github.GetCurrentUser()
 	if err != nil {
 		return nil, nil, err
 	}
 
-	// Build set of worktree branches per repo to filter out
-	type repoKey struct {
-		alias  string
-		branch string
-	}
-	wtBranches := make(map[repoKey]bool)
-	for _, t := range tasks {
-		for _, wt := range t.Worktrees {
-			wtBranches[repoKey{alias: wt.Alias, branch: wt.Branch}] = true
-		}
-	}
-
+	var errs []string
 	for _, repo := range s.Workspace.Repos {
 		prs, listErr := github.ListOpenPRs(repo.Path)
 		if listErr != nil {
-			continue // skip repos where listing fails
+			errs = append(errs, fmt.Sprintf("%s: %s", repo.Alias, listErr))
+			continue
 		}
 
 		for _, pr := range prs {
-			// Filter out PRs whose branch matches a worktree
-			if wtBranches[repoKey{alias: repo.Alias, branch: pr.HeadBranch}] {
-				continue
-			}
-
 			sp := StandalonePR{
 				RepoAlias:    repo.Alias,
 				RepoDir:      repo.Path,
@@ -79,8 +66,12 @@ func (s *WorkService) StandalonePRs(tasks []TaskView) (mine []StandalonePR, othe
 		}
 	}
 
-	// Sort each by most recently updated (PRSummary.UpdatedAt is in the source;
-	// we sort by number descending as a reasonable proxy since we don't carry UpdatedAt).
+	// If all repos failed and we got no PRs, surface the errors
+	if len(mine) == 0 && len(others) == 0 && len(errs) > 0 {
+		return nil, nil, fmt.Errorf("PR list failed: %s", strings.Join(errs, "; "))
+	}
+
+	// Sort by number descending as a reasonable proxy for most recently updated.
 	sort.Slice(mine, func(i, j int) bool { return mine[i].Number > mine[j].Number })
 	sort.Slice(others, func(i, j int) bool { return others[i].Number > others[j].Number })
 
