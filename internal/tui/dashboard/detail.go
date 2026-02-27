@@ -10,10 +10,18 @@ import (
 	"github.com/tSquaredd/work-cli/internal/ui"
 )
 
+// repoGroupDetail holds detail panel state for a repo header row.
+type repoGroupDetail struct {
+	repoAlias string
+	section   int // 1 = "Your PRs", 2 = "Reviews"
+	prs       []service.StandalonePR
+}
+
 // detailModel manages the right panel — worktree detail and diff rendering.
 type detailModel struct {
 	task         *service.TaskView
 	standalonePR *service.StandalonePR
+	repoGroup    *repoGroupDetail
 	diffText     string // full diff when loaded
 	diffDir      string // which worktree dir the diff is for
 	showDiff     bool   // whether to show full diff
@@ -35,11 +43,39 @@ func (m *detailModel) setTask(task *service.TaskView) {
 	}
 	m.task = task
 	m.standalonePR = nil
+	m.repoGroup = nil
 }
 
 func (m *detailModel) setStandalonePR(pr *service.StandalonePR) {
 	m.standalonePR = pr
 	m.task = nil
+	m.repoGroup = nil
+	m.diffText = ""
+	m.diffDir = ""
+	m.showDiff = false
+	m.scroll = 0
+}
+
+func (m *detailModel) setRepoGroup(repoAlias string, section int, myPRs, otherPRs []service.StandalonePR) {
+	var prs []service.StandalonePR
+	if section == 1 {
+		prs = myPRs
+	} else {
+		prs = otherPRs
+	}
+	var filtered []service.StandalonePR
+	for _, pr := range prs {
+		if pr.RepoAlias == repoAlias {
+			filtered = append(filtered, pr)
+		}
+	}
+	m.repoGroup = &repoGroupDetail{
+		repoAlias: repoAlias,
+		section:   section,
+		prs:       filtered,
+	}
+	m.task = nil
+	m.standalonePR = nil
 	m.diffText = ""
 	m.diffDir = ""
 	m.showDiff = false
@@ -57,6 +93,10 @@ func (m *detailModel) scrollDown() {
 }
 
 func (m detailModel) view() string {
+	if m.repoGroup != nil {
+		return m.renderRepoGroup()
+	}
+
 	if m.standalonePR != nil {
 		return m.renderStandalonePR()
 	}
@@ -98,7 +138,7 @@ func (m detailModel) view() string {
 
 		// PR info
 		if wt.PR != nil && wt.PR.Number > 0 {
-			prBadge := ui.PRBadge(wt.PR.State, wt.PR.ReviewStatus)
+			prBadge := ui.PRBadge(wt.PR.State, wt.PR.ReviewStatus, false)
 			prState := wt.PR.State
 			if prState == "" {
 				prState = "OPEN"
@@ -134,6 +174,41 @@ func (m detailModel) view() string {
 	return b.String()
 }
 
+func (m detailModel) renderRepoGroup() string {
+	rg := m.repoGroup
+	var b strings.Builder
+
+	title := lipgloss.NewStyle().
+		Foreground(ui.ColorInfo).
+		Bold(true).
+		Render(rg.repoAlias)
+	b.WriteString(title + "\n")
+
+	sectionLabel := "Your PRs"
+	if rg.section == 2 {
+		sectionLabel = "Reviews"
+	}
+	b.WriteString(ui.StyleDim.Render(sectionLabel) + "\n\n")
+
+	for _, pr := range rg.prs {
+		badge := ui.PRBadge("OPEN", pr.ReviewStatus, pr.IsDraft)
+		num := ui.StyleDim.Render(fmt.Sprintf("#%d", pr.Number))
+
+		title := pr.Title
+		maxTitle := m.width - 14
+		if maxTitle < 10 {
+			maxTitle = 10
+		}
+		if len(title) > maxTitle {
+			title = title[:maxTitle-3] + "..."
+		}
+
+		b.WriteString(fmt.Sprintf("  %s %s  %s\n", badge, num, title))
+	}
+
+	return b.String()
+}
+
 func (m detailModel) renderStandalonePR() string {
 	pr := m.standalonePR
 	var b strings.Builder
@@ -153,9 +228,11 @@ func (m detailModel) renderStandalonePR() string {
 	b.WriteString(fmt.Sprintf("Branch: %s\n", ui.StyleBranchName.Render(pr.HeadBranch)))
 
 	// Review status
-	reviewBadge := ui.PRBadge("OPEN", pr.ReviewStatus)
+	reviewBadge := ui.PRBadge("OPEN", pr.ReviewStatus, pr.IsDraft)
 	reviewLabel := "OPEN"
-	if pr.ReviewStatus != "" {
+	if pr.IsDraft {
+		reviewLabel = "DRAFT"
+	} else if pr.ReviewStatus != "" {
 		reviewLabel = pr.ReviewStatus
 	}
 	b.WriteString(fmt.Sprintf("Review: %s %s\n", reviewBadge, reviewLabel))

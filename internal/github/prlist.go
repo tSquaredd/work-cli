@@ -21,6 +21,7 @@ type PRSummary struct {
 	Additions    int
 	Deletions    int
 	UpdatedAt    time.Time
+	IsDraft      bool
 }
 
 // ghPRListFullJSON maps the JSON output of `gh pr list --json ...` for PR summaries.
@@ -34,6 +35,7 @@ type ghPRListFullJSON struct {
 	Additions      int       `json:"additions"`
 	Deletions      int       `json:"deletions"`
 	UpdatedAt      time.Time `json:"updatedAt"`
+	IsDraft        bool      `json:"isDraft"`
 	Author         struct {
 		Login string `json:"login"`
 	} `json:"author"`
@@ -46,7 +48,7 @@ type ghPRListFullJSON struct {
 func ListOpenPRs(repoDir string) ([]PRSummary, error) {
 	cmd := exec.Command("gh", "pr", "list",
 		"--state", "open",
-		"--json", "number,title,author,url,headRefName,headRefOid,reviewDecision,comments,additions,deletions,updatedAt",
+		"--json", "number,title,author,url,headRefName,headRefOid,reviewDecision,comments,additions,deletions,updatedAt,isDraft",
 		"--limit", "100",
 	)
 	cmd.Dir = repoDir
@@ -79,6 +81,7 @@ func ListOpenPRs(repoDir string) ([]PRSummary, error) {
 			Additions:    item.Additions,
 			Deletions:    item.Deletions,
 			UpdatedAt:    item.UpdatedAt,
+			IsDraft:      item.IsDraft,
 		}
 	}
 

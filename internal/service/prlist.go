@@ -23,6 +23,7 @@ type StandalonePR struct {
 	Additions    int
 	Deletions    int
 	IsMine       bool
+	IsDraft      bool
 }
 
 // StandalonePRs collects all open PRs across workspace repos.
@@ -56,6 +57,7 @@ func (s *WorkService) StandalonePRs(tasks []TaskView) (mine []StandalonePR, othe
 				Additions:    pr.Additions,
 				Deletions:    pr.Deletions,
 				IsMine:       pr.Author == currentUser,
+				IsDraft:      pr.IsDraft,
 			}
 
 			if sp.IsMine {

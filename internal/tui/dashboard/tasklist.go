@@ -15,15 +15,19 @@ const (
 	rowTask rowKind = iota
 	rowWorktree
 	rowSectionHeader
+	rowRepoHeader
 	rowMyPR
 	rowOtherPR
+	rowSectionMessage
 )
 
 type listRow struct {
-	kind    rowKind
-	taskIdx int // index into tasks
-	wtIdx   int // index into task.Worktrees
-	prIdx   int // index into myPRs or otherPRs
+	kind      rowKind
+	taskIdx   int    // index into tasks
+	wtIdx     int    // index into task.Worktrees
+	prIdx     int    // index into myPRs or otherPRs
+	repoAlias string // for rowRepoHeader: the repo alias
+	section   int    // for rowRepoHeader: 1 = "Your PRs", 2 = "Reviews"
 }
 
 type navLevel int
@@ -35,20 +39,25 @@ const (
 
 // taskListModel manages the left panel — task list with cursor and session indicators.
 type taskListModel struct {
-	tasks    []service.TaskView
-	myPRs    []service.StandalonePR
-	otherPRs []service.StandalonePR
-	rows     []listRow  // computed flat list
-	cursor   int        // index into rows (always a group-level row)
-	navLevel navLevel   // whether cursor is at group or repo level
-	wtCursor int        // focused worktree index when at repo level
-	width    int
-	height   int
-	prError  string // persistent error message from PR list fetch
+	tasks     []service.TaskView
+	myPRs     []service.StandalonePR
+	otherPRs  []service.StandalonePR
+	rows      []listRow        // computed flat list
+	cursor    int              // index into rows (always a group-level row)
+	navLevel  navLevel         // whether cursor is at group or repo level
+	wtCursor  int              // focused worktree index when at repo level
+	collapsed map[string]bool  // key: "section:repoAlias", true if collapsed
+	prLoaded  bool            // true after first standalone PR fetch completes
+	viewTop   int              // first visible row index for viewport scrolling
+	width     int
+	height    int
+	prError   string // persistent error message from PR list fetch
 }
 
 func newTaskListModel() taskListModel {
-	return taskListModel{}
+	return taskListModel{
+		collapsed: make(map[string]bool),
+	}
 }
 
 func (m *taskListModel) setTasks(tasks []service.TaskView) {
@@ -59,6 +68,7 @@ func (m *taskListModel) setTasks(tasks []service.TaskView) {
 func (m *taskListModel) setStandalonePRs(mine, others []service.StandalonePR) {
 	m.myPRs = mine
 	m.otherPRs = others
+	m.prLoaded = true
 	m.prError = "" // clear error on successful load
 	m.buildRows()
 }
@@ -78,19 +88,9 @@ func (m *taskListModel) buildRows() {
 		}
 	}
 
-	if len(m.myPRs) > 0 {
-		rows = append(rows, listRow{kind: rowSectionHeader, prIdx: -1}) // "Your PRs" header
-		for i := range m.myPRs {
-			rows = append(rows, listRow{kind: rowMyPR, prIdx: i})
-		}
-	}
-
-	if len(m.otherPRs) > 0 {
-		rows = append(rows, listRow{kind: rowSectionHeader, prIdx: -2}) // "Reviews" header
-		for i := range m.otherPRs {
-			rows = append(rows, listRow{kind: rowOtherPR, prIdx: i})
-		}
-	}
+	// Always show both PR sections
+	rows = m.appendPRSection(rows, m.myPRs, rowMyPR, 1, -1)  // section 1 = "Your PRs"
+	rows = m.appendPRSection(rows, m.otherPRs, rowOtherPR, 2, -2) // section 2 = "Not Your PRs"
 
 	m.rows = rows
 
@@ -116,6 +116,95 @@ func (m *taskListModel) buildRows() {
 				m.wtCursor = 0
 			}
 		}
+
+		m.ensureVisible()
+	}
+}
+
+// appendPRSection always emits a section header and either grouped PR rows,
+// a loading message, or an empty message.
+func (m *taskListModel) appendPRSection(rows []listRow, prs []service.StandalonePR, kind rowKind, section int, sectionIdx int) []listRow {
+	rows = append(rows, listRow{kind: rowSectionHeader, prIdx: sectionIdx})
+
+	if len(prs) == 0 {
+		// Show loading or empty message
+		rows = append(rows, listRow{kind: rowSectionMessage, section: section})
+		return rows
+	}
+
+	return m.appendGroupedPRRows(rows, prs, kind, section)
+}
+
+// appendGroupedPRRows groups PRs by repo alias (preserving first-appearance order)
+// and emits repo headers with child PR rows.
+func (m *taskListModel) appendGroupedPRRows(rows []listRow, prs []service.StandalonePR, kind rowKind, section int) []listRow {
+
+	// Group by repo, preserving first-appearance order
+	type repoGroup struct {
+		alias   string
+		indices []int
+	}
+	var groups []repoGroup
+	repoMap := map[string]int{} // alias -> index in groups
+	for i, pr := range prs {
+		idx, ok := repoMap[pr.RepoAlias]
+		if !ok {
+			repoMap[pr.RepoAlias] = len(groups)
+			groups = append(groups, repoGroup{alias: pr.RepoAlias, indices: []int{i}})
+		} else {
+			groups[idx].indices = append(groups[idx].indices, i)
+		}
+	}
+
+	for _, g := range groups {
+		rows = append(rows, listRow{
+			kind:      rowRepoHeader,
+			repoAlias: g.alias,
+			section:   section,
+		})
+
+		collapseKey := fmt.Sprintf("%d:%s", section, g.alias)
+		if _, seen := m.collapsed[collapseKey]; !seen {
+			m.collapsed[collapseKey] = true // default to collapsed
+		}
+		if !m.collapsed[collapseKey] {
+			for _, prIdx := range g.indices {
+				rows = append(rows, listRow{kind: kind, prIdx: prIdx})
+			}
+		}
+	}
+
+	return rows
+}
+
+// collapseKey returns the map key for a repo header's collapse state.
+func collapseKey(section int, repoAlias string) string {
+	return fmt.Sprintf("%d:%s", section, repoAlias)
+}
+
+// expandRepoHeader expands the repo header at cursor if it is collapsed.
+func (m *taskListModel) expandRepoHeader() {
+	row := m.selectedRow()
+	if row == nil || row.kind != rowRepoHeader {
+		return
+	}
+	key := collapseKey(row.section, row.repoAlias)
+	if m.collapsed[key] {
+		m.collapsed[key] = false
+		m.buildRows() // buildRows calls ensureVisible
+	}
+}
+
+// collapseRepoHeader collapses the repo header at cursor if it is expanded.
+func (m *taskListModel) collapseRepoHeader() {
+	row := m.selectedRow()
+	if row == nil || row.kind != rowRepoHeader {
+		return
+	}
+	key := collapseKey(row.section, row.repoAlias)
+	if !m.collapsed[key] {
+		m.collapsed[key] = true
+		m.buildRows()
 	}
 }
 
@@ -172,6 +261,7 @@ func (m *taskListModel) moveUp() {
 	if m.cursor > 0 {
 		m.cursor--
 		m.skipToGroupRow(-1)
+		m.ensureVisible()
 	}
 }
 
@@ -190,6 +280,7 @@ func (m *taskListModel) moveDown() {
 	if m.cursor < len(m.rows)-1 {
 		m.cursor++
 		m.skipToGroupRow(1)
+		m.ensureVisible()
 	}
 }
 
@@ -197,7 +288,7 @@ func (m *taskListModel) moveDown() {
 func (m *taskListModel) skipToGroupRow(dir int) {
 	for m.cursor >= 0 && m.cursor < len(m.rows) {
 		k := m.rows[m.cursor].kind
-		if k != rowSectionHeader && k != rowWorktree {
+		if k != rowSectionHeader && k != rowSectionMessage && k != rowWorktree {
 			break
 		}
 		m.cursor += dir
@@ -208,7 +299,7 @@ func (m *taskListModel) skipToGroupRow(dir int) {
 		// If first row is skippable, find next valid row
 		for m.cursor < len(m.rows) {
 			k := m.rows[m.cursor].kind
-			if k != rowSectionHeader && k != rowWorktree {
+			if k != rowSectionHeader && k != rowSectionMessage && k != rowWorktree {
 				break
 			}
 			m.cursor++
@@ -219,7 +310,7 @@ func (m *taskListModel) skipToGroupRow(dir int) {
 		// Walk back if we landed on a skippable row
 		for m.cursor >= 0 {
 			k := m.rows[m.cursor].kind
-			if k != rowSectionHeader && k != rowWorktree {
+			if k != rowSectionHeader && k != rowSectionMessage && k != rowWorktree {
 				break
 			}
 			m.cursor--
@@ -228,6 +319,38 @@ func (m *taskListModel) skipToGroupRow(dir int) {
 			m.cursor = 0
 		}
 	}
+}
+
+// ensureVisible adjusts viewTop so the cursor row is within the visible viewport.
+func (m *taskListModel) ensureVisible() {
+	if m.height <= 0 {
+		return
+	}
+	// Scroll up if cursor is above viewport
+	if m.cursor < m.viewTop {
+		m.viewTop = m.cursor
+	}
+	// Scroll down if cursor is below viewport
+	for {
+		vis := m.visibleLines(m.viewTop, m.cursor)
+		if vis <= m.height {
+			break
+		}
+		m.viewTop++
+	}
+}
+
+// visibleLines counts the visual lines occupied by rows[from..to] inclusive.
+// Section headers take 2 lines (they render with a leading \n).
+func (m *taskListModel) visibleLines(from, to int) int {
+	n := 0
+	for i := from; i <= to && i < len(m.rows); i++ {
+		n++
+		if m.rows[i].kind == rowSectionHeader {
+			n++ // section headers render with leading \n
+		}
+	}
+	return n
 }
 
 // enterWorktrees switches to repo-level navigation within the current task.
@@ -271,8 +394,20 @@ func (m taskListModel) view() string {
 	}
 
 	var b strings.Builder
+	visLines := 0
 
-	for i, row := range m.rows {
+	for i := m.viewTop; i < len(m.rows); i++ {
+		row := m.rows[i]
+
+		// Check if this row fits in the viewport
+		rowLines := 1
+		if row.kind == rowSectionHeader {
+			rowLines = 2 // section headers render with leading \n
+		}
+		if m.height > 0 && visLines+rowLines > m.height {
+			break
+		}
+
 		isGroupCursor := i == m.cursor && m.navLevel == navGroup
 
 		switch row.kind {
@@ -285,24 +420,31 @@ func (m taskListModel) view() string {
 			b.WriteString(m.renderWorktreeRow(row, isWtCursor))
 		case rowSectionHeader:
 			b.WriteString(m.renderSectionHeader(row))
+		case rowSectionMessage:
+			b.WriteString(m.renderSectionMessage(row))
+		case rowRepoHeader:
+			b.WriteString(m.renderRepoHeader(row, isGroupCursor))
 		case rowMyPR:
 			b.WriteString(m.renderMyPRRow(row, isGroupCursor))
 		case rowOtherPR:
 			b.WriteString(m.renderOtherPRRow(row, isGroupCursor))
 		}
 		b.WriteString("\n")
+		visLines += rowLines
 	}
 
-	// Show PR error if no standalone PRs loaded
+	// Show PR error if no standalone PRs loaded (only when visible at bottom)
 	if m.prError != "" && len(m.myPRs) == 0 && len(m.otherPRs) == 0 {
-		errText := m.prError
-		maxW := m.width - 6 // account for "  ⚠ " prefix
-		if maxW > 0 && len(errText) > maxW {
-			errText = errText[:maxW-3] + "..."
+		if m.height <= 0 || visLines+2 <= m.height {
+			errText := m.prError
+			maxW := m.width - 6 // account for "  ⚠ " prefix
+			if maxW > 0 && len(errText) > maxW {
+				errText = errText[:maxW-3] + "..."
+			}
+			b.WriteString("\n")
+			b.WriteString(ui.StyleDim.Render("  ⚠ " + errText))
+			b.WriteString("\n")
 		}
-		b.WriteString("\n")
-		b.WriteString(ui.StyleDim.Render("  ⚠ " + errText))
-		b.WriteString("\n")
 	}
 
 	return b.String()
@@ -341,7 +483,7 @@ func (m taskListModel) renderWorktreeRow(row listRow, isCursor bool) string {
 	// PR indicator
 	prIndicator := ""
 	if wt.PR != nil && wt.PR.Number > 0 {
-		prBadge := ui.PRBadge(wt.PR.State, wt.PR.ReviewStatus)
+		prBadge := ui.PRBadge(wt.PR.State, wt.PR.ReviewStatus, false)
 		prNum := ui.StyleDim.Render(fmt.Sprintf("#%d", wt.PR.Number))
 		prIndicator = fmt.Sprintf("  %s %s", prBadge, prNum)
 		if wt.PR.NewComments > 0 {
@@ -363,12 +505,22 @@ func (m taskListModel) renderWorktreeRow(row listRow, isCursor bool) string {
 	)
 }
 
+func (m taskListModel) renderSectionMessage(row listRow) string {
+	var msg string
+	if !m.prLoaded {
+		msg = "Loading..."
+	} else {
+		msg = "None"
+	}
+	return "  " + ui.StyleDim.Render(msg)
+}
+
 func (m taskListModel) renderSectionHeader(row listRow) string {
 	var label string
 	if row.prIdx == -1 {
 		label = "Your PRs"
 	} else {
-		label = "Reviews"
+		label = "Not Your PRs"
 	}
 
 	headerStyle := lipgloss.NewStyle().Foreground(ui.ColorMuted).Faint(true)
@@ -390,6 +542,40 @@ func (m taskListModel) renderSectionHeader(row listRow) string {
 	return "\n" + headerStyle.Render(line)
 }
 
+func (m taskListModel) renderRepoHeader(row listRow, isCursor bool) string {
+	prefix := "  "
+	if isCursor {
+		prefix = ui.StylePrimary.Render("> ")
+	}
+
+	key := collapseKey(row.section, row.repoAlias)
+	collapsed := m.collapsed[key]
+
+	indicator := ui.StyleDim.Render("▾")
+	if collapsed {
+		indicator = ui.StyleDim.Render("▸")
+	}
+
+	repoName := ui.StyleRepoName.Render(row.repoAlias)
+
+	// Count PRs for this repo in the appropriate section
+	var prs []service.StandalonePR
+	if row.section == 1 {
+		prs = m.myPRs
+	} else {
+		prs = m.otherPRs
+	}
+	count := 0
+	for _, pr := range prs {
+		if pr.RepoAlias == row.repoAlias {
+			count++
+		}
+	}
+	countStr := ui.StyleDim.Render(fmt.Sprintf("(%d)", count))
+
+	return fmt.Sprintf("%s%s %s %s", prefix, indicator, repoName, countStr)
+}
+
 func (m taskListModel) renderMyPRRow(row listRow, isCursor bool) string {
 	pr := m.myPRs[row.prIdx]
 	return m.renderPRRow(pr, isCursor, false)
@@ -401,36 +587,34 @@ func (m taskListModel) renderOtherPRRow(row listRow, isCursor bool) string {
 }
 
 func (m taskListModel) renderPRRow(pr service.StandalonePR, isCursor bool, showAuthor bool) string {
-	prefix := "  "
+	prefix := "    "
 	if isCursor {
-		prefix = ui.StylePrimary.Render("> ")
+		prefix = "  " + ui.StylePrimary.Render("> ")
 	}
 
-	repoName := ui.StyleRepoName.Render(padRight(pr.RepoAlias, 12))
-	prBadge := ui.PRBadge("OPEN", pr.ReviewStatus)
-	prNum := ui.StyleDim.Render(fmt.Sprintf("#%d", pr.Number))
+	prBadge := ui.PRBadge("OPEN", pr.ReviewStatus, pr.IsDraft)
+	prNum := ui.StyleDim.Render(fmt.Sprintf("#%-5d", pr.Number))
 
-	// Truncate title to fit
-	title := pr.Title
-	maxTitle := m.width - 28
+	// Build author suffix first so we know its visual width
+	var authorSuffix string
 	if showAuthor {
-		maxTitle -= 12
+		authorSuffix = "  " + ui.StyleDim.Render(fmt.Sprintf("@%s", pr.Author))
 	}
+
+	// Measure fixed parts visually (ANSI-aware) to get accurate remaining space
+	fixedWidth := lipgloss.Width(prefix) + lipgloss.Width(prBadge) + 1 +
+		lipgloss.Width(prNum) + 1 + lipgloss.Width(authorSuffix)
+	maxTitle := m.width - fixedWidth
 	if maxTitle < 10 {
 		maxTitle = 10
 	}
+
+	title := pr.Title
 	if len(title) > maxTitle {
 		title = title[:maxTitle-3] + "..."
 	}
 
-	line := fmt.Sprintf("%s%s  %s %s  %s", prefix, repoName, prBadge, prNum, title)
-
-	if showAuthor {
-		author := ui.StyleDim.Render(fmt.Sprintf("@%s", pr.Author))
-		line += "  " + author
-	}
-
-	return line
+	return fmt.Sprintf("%s%s %s %s", prefix, prBadge, prNum, title) + authorSuffix
 }
 
 // countActive returns the number of tasks with active sessions.

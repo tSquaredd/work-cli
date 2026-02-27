@@ -162,6 +162,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.statusBar.message = fmt.Sprintf("Error loading comments: %s", msg.err)
 			return m, clearMessageCmd()
 		}
+		m.statusBar.message = ""
 		m.comments.setData(msg.taskName, msg.repoAlias, msg.prNumber, msg.dir, msg.comments)
 		m.comments.width = m.width
 		m.comments.height = m.height
@@ -267,8 +268,11 @@ func (m Model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		return m, nil
 	}
 
-	// Check if cursor is on a standalone PR
+	// Check if cursor is on a repo header or standalone PR
 	row := m.taskList.selectedRow()
+	if row != nil && row.kind == rowRepoHeader {
+		return m.handleRepoHeaderKey(msg)
+	}
 	if row != nil && (row.kind == rowMyPR || row.kind == rowOtherPR) {
 		return m.handleStandalonePRKey(msg)
 	}
@@ -362,6 +366,46 @@ func (m Model) handleStandalonePRKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 
 	case "o":
 		return m.handleStandalonePRBrowserOpen()
+
+	case "n":
+		m.newTask = true
+		return m, tea.Quit
+	}
+
+	return m, nil
+}
+
+func (m Model) handleRepoHeaderKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
+	key := msg.String()
+
+	switch key {
+	case "q", "ctrl+c":
+		m.quitting = true
+		return m, tea.Quit
+
+	case "down":
+		m.taskList.moveDown()
+		m.updateDetail()
+		m.updateStatusBar()
+		return m, nil
+
+	case "up":
+		m.taskList.moveUp()
+		m.updateDetail()
+		m.updateStatusBar()
+		return m, nil
+
+	case "enter", "right":
+		m.taskList.expandRepoHeader()
+		m.updateDetail()
+		m.updateStatusBar()
+		return m, nil
+
+	case "left":
+		m.taskList.collapseRepoHeader()
+		m.updateDetail()
+		m.updateStatusBar()
+		return m, nil
 
 	case "n":
 		m.newTask = true
@@ -988,8 +1032,8 @@ func (m Model) SelectedWorktreeAlias() string {
 // Layout and rendering
 
 func (m *Model) updateLayout() {
-	// Distribute width: ~35% task list, ~65% detail
-	listWidth := m.width * 35 / 100
+	// Distribute width: 50% task list, 50% detail
+	listWidth := m.width * 50 / 100
 	if listWidth < 25 {
 		listWidth = 25
 	}
@@ -1014,6 +1058,8 @@ func (m *Model) updateDetail() {
 	switch row.kind {
 	case rowTask, rowWorktree:
 		m.detail.setTask(m.taskList.selected())
+	case rowRepoHeader:
+		m.detail.setRepoGroup(row.repoAlias, row.section, m.myPRs, m.otherPRs)
 	case rowMyPR, rowOtherPR:
 		m.detail.setStandalonePR(m.taskList.selectedStandalonePR())
 	default:
@@ -1034,8 +1080,9 @@ func (m *Model) updateStatusBar() {
 	m.statusBar.hasComments = sel != nil && m.hasComments(sel)
 	m.statusBar.ghAvailable = m.svc.GHAvailable
 
-	// Check if cursor is on a standalone PR
+	// Check if cursor is on a standalone PR or repo header
 	m.statusBar.standalonePR = row != nil && (row.kind == rowMyPR || row.kind == rowOtherPR)
+	m.statusBar.repoHeader = row != nil && row.kind == rowRepoHeader
 	m.statusBar.inRepoLevel = m.taskList.navLevel == navRepo
 	if m.showDiffView {
 		m.statusBar.diffViewMode = m.diffView.mode
