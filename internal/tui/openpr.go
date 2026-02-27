@@ -3,19 +3,16 @@ package tui
 import (
 	"fmt"
 	"os/exec"
-	"strings"
 
-	"github.com/charmbracelet/huh"
 	"github.com/tSquaredd/work-cli/internal/github"
-	"github.com/tSquaredd/work-cli/internal/prstate"
 	"github.com/tSquaredd/work-cli/internal/service"
 	"github.com/tSquaredd/work-cli/internal/ui"
 	"github.com/tSquaredd/work-cli/internal/worktree"
 	"github.com/tSquaredd/work-cli/internal/workspace"
 )
 
-// RunOpenPR runs the PR creation wizard for a given task.
-func RunOpenPR(ws *workspace.Workspace, taskName string, store *prstate.Store) error {
+// RunOpenPR pushes unpushed worktrees and opens the browser for PR creation.
+func RunOpenPR(ws *workspace.Workspace, taskName string) error {
 	// Pre-flight: check gh CLI availability
 	if !github.IsAvailable() {
 		fmt.Println()
@@ -58,14 +55,6 @@ func RunOpenPR(ws *workspace.Workspace, taskName string, store *prstate.Store) e
 			fmt.Println(ui.InfoLine(wt.Alias, "CLEAN — no changes to push"))
 			skipped = append(skipped, wt.Alias)
 			continue
-		}
-
-		// Check if PR already exists
-		if store != nil {
-			if rec, ok := store.Get(taskName, wt.Alias); ok && rec.Number > 0 {
-				fmt.Println(ui.InfoLine(wt.Alias, fmt.Sprintf("already has PR #%d", rec.Number)))
-				continue
-			}
 		}
 
 		eligible = append(eligible, eligibleWT{
@@ -112,126 +101,16 @@ func RunOpenPR(ws *workspace.Workspace, taskName string, store *prstate.Store) e
 
 	fmt.Println()
 
-	// Target branch selection
-	var baseBranch string
-	if len(eligible) > 0 {
-		recentBranches := worktree.RecentBranches(ws.Repos[0].Path, 15)
-		if len(recentBranches) == 0 {
-			recentBranches = []string{"main", "develop", "master"}
-		}
-
-		branchOptions := make([]huh.Option[string], 0, len(recentBranches))
-		for _, b := range recentBranches {
-			branchOptions = append(branchOptions, huh.NewOption(b, b))
-		}
-
-		baseForm := huh.NewForm(
-			huh.NewGroup(
-				huh.NewSelect[string]().
-					Title("Target branch (base)").
-					Description("Which branch should the PR merge into?").
-					Options(branchOptions...).
-					Value(&baseBranch).
-					Height(10),
-			),
-		).WithTheme(ui.HuhTheme())
-		if err := baseForm.Run(); err != nil {
-			return nil // user cancelled
-		}
-	}
-
-	if baseBranch == "" {
-		baseBranch = "main"
-	}
-
-	// PR title
-	defaultTitle := formatTitle(taskName)
-	prTitle := defaultTitle
-	titleForm := huh.NewForm(
-		huh.NewGroup(
-			huh.NewInput().
-				Title("PR title").
-				Value(&prTitle),
-		),
-	).WithTheme(ui.HuhTheme())
-	if err := titleForm.Run(); err != nil {
-		return nil
-	}
-	if prTitle == "" {
-		prTitle = defaultTitle
-	}
-
-	// PR body
-	prBody := ""
-	bodyForm := huh.NewForm(
-		huh.NewGroup(
-			huh.NewText().
-				Title("PR description (optional)").
-				Placeholder("Describe what this PR does...").
-				Value(&prBody),
-		),
-	).WithTheme(ui.HuhTheme())
-	if err := bodyForm.Run(); err != nil {
-		return nil
-	}
-
-	// Confirmation
-	var confirmed bool
-	confirmForm := huh.NewForm(
-		huh.NewGroup(
-			huh.NewConfirm().
-				Title(fmt.Sprintf("Create %d PR(s) → %s?", len(eligible), baseBranch)).
-				Value(&confirmed),
-		),
-	).WithTheme(ui.HuhTheme())
-	if err := confirmForm.Run(); err != nil {
-		return nil
-	}
-	if !confirmed {
-		fmt.Println(ui.StyleDim.Render("  Cancelled."))
-		return nil
-	}
-
-	// Create PRs
-	fmt.Println()
-	fmt.Println(ui.Section("Creating pull requests..."))
-	fmt.Println()
-
+	// Open browser for each eligible worktree
 	for _, wt := range eligible {
-		info, err := github.CreatePR(github.PRCreateParams{
-			Dir:   wt.dir,
-			Title: prTitle,
-			Body:  prBody,
-			Base:  baseBranch,
-		})
-
-		if err != nil {
-			fmt.Println(ui.ErrorLine(wt.alias, fmt.Sprintf("failed: %s", err)))
+		fmt.Printf("  %s opening browser for %s...\n", ui.StyleDim.Render("→"), wt.alias)
+		if err := github.CreateInBrowser(wt.dir); err != nil {
+			fmt.Println(ui.ErrorLine(wt.alias, fmt.Sprintf("failed to open browser: %s", err)))
 			continue
 		}
-
-		fmt.Println(ui.ProgressLine(wt.alias, fmt.Sprintf("PR #%d created → %s", info.Number, info.URL)))
-
-		// Save to prstate
-		if store != nil {
-			_ = store.Save(prstate.PRRecord{
-				TaskName:  taskName,
-				RepoAlias: wt.alias,
-				Number:    info.Number,
-				URL:       info.URL,
-			})
-		}
+		fmt.Println(ui.ProgressLine(wt.alias, "opened in browser"))
 	}
 
 	fmt.Println()
 	return nil
-}
-
-// formatTitle converts a task name like "auth-refactor" to "Auth refactor".
-func formatTitle(taskName string) string {
-	s := strings.ReplaceAll(taskName, "-", " ")
-	if len(s) > 0 {
-		s = strings.ToUpper(s[:1]) + s[1:]
-	}
-	return s
 }

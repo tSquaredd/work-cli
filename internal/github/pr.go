@@ -20,14 +20,6 @@ type PRInfo struct {
 	UpdatedAt    time.Time
 }
 
-// PRCreateParams holds parameters for creating a pull request.
-type PRCreateParams struct {
-	Dir   string // worktree dir (for -C flag context)
-	Title string
-	Body  string
-	Base  string // target branch
-}
-
 // ghPRJSON maps the JSON output of `gh pr view --json ...`.
 type ghPRJSON struct {
 	Number         int       `json:"number"`
@@ -57,34 +49,10 @@ func prInfoFromJSON(j ghPRJSON) PRInfo {
 	}
 }
 
-// CreatePR creates a pull request via `gh pr create`.
-func CreatePR(params PRCreateParams) (*PRInfo, error) {
-	args := []string{"-C", params.Dir, "pr", "create",
-		"--title", params.Title,
-		"--body", params.Body,
-		"--json", "number,url,title,state,reviewDecision,comments,headRefName,baseRefName,updatedAt",
-	}
-	if params.Base != "" {
-		args = append(args, "--base", params.Base)
-	}
-
-	cmd := exec.Command("gh", args...)
-	out, err := cmd.Output()
-	if err != nil {
-		if exitErr, ok := err.(*exec.ExitError); ok {
-			return nil, fmt.Errorf("gh pr create: %s", string(exitErr.Stderr))
-		}
-		return nil, fmt.Errorf("gh pr create: %w", err)
-	}
-
-	var j ghPRJSON
-	if err := json.Unmarshal(out, &j); err != nil {
-		// gh pr create may not return JSON in older versions; try to parse URL from stdout
-		return nil, fmt.Errorf("parsing gh output: %w", err)
-	}
-
-	info := prInfoFromJSON(j)
-	return &info, nil
+// CreateInBrowser opens the browser to create a new PR for the current branch.
+func CreateInBrowser(dir string) error {
+	cmd := exec.Command("gh", "-C", dir, "pr", "create", "--web")
+	return cmd.Run()
 }
 
 // FindPRForBranch finds the PR associated with the current branch in the given directory.
