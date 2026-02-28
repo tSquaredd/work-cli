@@ -19,6 +19,7 @@ type statusBarModel struct {
 	showDiff       bool
 	showComments   bool
 	showDiffView   bool
+	showNewTask    bool
 	diffViewMode   diffViewMode
 	standalonePR   bool // cursor is on a standalone PR row
 	repoHeader     bool // cursor is on a repo header row
@@ -54,6 +55,12 @@ func (m statusBarModel) keybindView() string {
 	sep := descStyle.Render("  ")
 
 	var binds []string
+
+	// New task overlay
+	if m.showNewTask {
+		binds = append(binds, keyStyle.Render("Esc")+descStyle.Render(":cancel"))
+		return strings.Join(binds, sep)
+	}
 
 	// Repo header selected
 	if m.repoHeader {

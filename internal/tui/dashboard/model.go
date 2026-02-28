@@ -38,6 +38,10 @@ type Model struct {
 	diffView     diffViewModel
 	showDiffView bool
 
+	// New task overlay
+	newTaskView  newTaskModel
+	showNewTask  bool
+
 	// Standalone PRs
 	myPRs    []service.StandalonePR
 	otherPRs []service.StandalonePR
@@ -82,6 +86,10 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.width = msg.Width
 		m.height = msg.Height
 		m.updateLayout()
+		if m.showNewTask {
+			m.newTaskView.width = msg.Width
+			m.newTaskView.height = msg.Height
+		}
 		return m, nil
 
 	case tasksLoadedMsg:
@@ -222,8 +230,31 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 		return m, nil
 
+	case newTaskFormCancelMsg:
+		m.showNewTask = false
+		m.updateStatusBar()
+		return m, nil
+
+	case newTaskCreatedMsg:
+		m.newTaskView.step = stepDone
+		m.newTaskView.createdDirs = msg.dirs
+		m.newTaskView.progress = msg.progress
+		m.newTaskView.createErr = msg.err
+		if msg.err != nil {
+			// Show error, user can press Esc to return
+			return m, nil
+		}
+		// Launch Claude in a new terminal tab
+		return m.launchNewTask()
+
 	case tea.KeyMsg:
 		return m.handleKey(msg)
+	}
+
+	// Forward messages to new task overlay when active
+	if m.showNewTask {
+		cmd := m.newTaskView.update(msg)
+		return m, cmd
 	}
 
 	return m, nil
@@ -231,6 +262,11 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 func (m Model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	key := msg.String()
+
+	// Handle new task overlay
+	if m.showNewTask {
+		return m.handleNewTaskKey(msg)
+	}
 
 	// Handle confirmation mode
 	if m.confirming {
@@ -322,8 +358,7 @@ func (m Model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		return m.handleAttach()
 
 	case "n":
-		m.newTask = true
-		return m, tea.Quit
+		return m.startNewTask()
 
 	case "p":
 		return m.handleOpenPR()
@@ -368,8 +403,7 @@ func (m Model) handleStandalonePRKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		return m.handleStandalonePRBrowserOpen()
 
 	case "n":
-		m.newTask = true
-		return m, tea.Quit
+		return m.startNewTask()
 	}
 
 	return m, nil
@@ -408,8 +442,7 @@ func (m Model) handleRepoHeaderKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		return m, nil
 
 	case "n":
-		m.newTask = true
-		return m, tea.Quit
+		return m.startNewTask()
 	}
 
 	return m, nil
@@ -1076,6 +1109,7 @@ func (m *Model) updateStatusBar() {
 	m.statusBar.showDiff = m.detail.showDiff
 	m.statusBar.showComments = m.showComments
 	m.statusBar.showDiffView = m.showDiffView
+	m.statusBar.showNewTask = m.showNewTask
 	m.statusBar.hasPR = sel != nil && sel.HasPRs
 	m.statusBar.hasComments = sel != nil && m.hasComments(sel)
 	m.statusBar.ghAvailable = m.svc.GHAvailable
@@ -1105,6 +1139,11 @@ func (m Model) View() string {
 
 	if m.width == 0 {
 		return "Loading..."
+	}
+
+	// Fullscreen new task overlay
+	if m.showNewTask {
+		return m.newTaskView.view()
 	}
 
 	// Fullscreen diff viewer overlay
@@ -1214,7 +1253,108 @@ func tickCmd() tea.Cmd {
 	})
 }
 
+// startNewTask opens the new task wizard overlay.
+func (m Model) startNewTask() (tea.Model, tea.Cmd) {
+	m.newTaskView = newNewTaskModel(m.svc.Workspace)
+	m.newTaskView.width = m.width
+	m.newTaskView.height = m.height
+	m.showNewTask = true
+	m.updateStatusBar()
+	cmd := m.newTaskView.initPickRepos()
+	return m, cmd
+}
+
+// handleNewTaskKey forwards key events to the active new task overlay form.
+func (m Model) handleNewTaskKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
+	// Allow Esc at the done-with-error step to close overlay
+	if m.newTaskView.step == stepDone && msg.String() == "esc" {
+		m.showNewTask = false
+		m.updateStatusBar()
+		return m, nil
+	}
+
+	cmd := m.newTaskView.update(msg)
+	return m, cmd
+}
+
+// launchNewTask spawns Claude in a new terminal tab after worktree creation.
+func (m Model) launchNewTask() (tea.Model, tea.Cmd) {
+	dirs := m.newTaskView.createdDirs
+	taskName := m.newTaskView.taskName
+
+	// Prepare claude files
+	cfg := claude.LaunchConfig{
+		Workspace: m.svc.Workspace,
+		TaskName:  taskName,
+		Dirs:      dirs,
+	}
+
+	if err := claude.Prepare(cfg); err != nil {
+		m.statusBar.message = fmt.Sprintf("Error preparing: %s", err)
+		m.showNewTask = false
+		m.updateStatusBar()
+		return m, clearMessageCmd()
+	}
+
+	// Build command string
+	claudePath, err := exec.LookPath("claude")
+	if err != nil {
+		m.statusBar.message = "claude not found in PATH"
+		m.showNewTask = false
+		m.updateStatusBar()
+		return m, clearMessageCmd()
+	}
+
+	systemPrompt := claude.BuildSystemPrompt(cfg)
+	var cmdParts []string
+	cmdParts = append(cmdParts, fmt.Sprintf("cd %q", dirs[0]))
+
+	args := []string{claudePath}
+	for i, d := range dirs {
+		if i > 0 {
+			args = append(args, "--add-dir", d)
+		}
+	}
+	args = append(args, "--append-system-prompt", fmt.Sprintf("%q", systemPrompt))
+	cmdParts = append(cmdParts, strings.Join(args, " "))
+
+	command := strings.Join(cmdParts, " && ")
+	tabTitle := "work: " + taskName
+
+	// Spawn in new terminal tab
+	opener := session.DetectTerminal()
+	pid, err := opener.OpenTab(command, tabTitle)
+	if err != nil {
+		m.statusBar.message = fmt.Sprintf("Tab spawn failed: %s", err)
+		m.showNewTask = false
+		m.updateStatusBar()
+		return m, clearMessageCmd()
+	}
+
+	// Register session
+	if m.svc.Tracker != nil {
+		rec := session.SessionRecord{
+			TaskName:      taskName,
+			PID:           pid,
+			Dirs:          dirs,
+			LaunchedAt:    time.Now(),
+			TerminalTab:   tabTitle,
+			WorkspaceRoot: m.svc.Workspace.Root,
+		}
+		_ = m.svc.Tracker.Register(rec)
+	}
+
+	m.showNewTask = false
+	m.statusBar.message = fmt.Sprintf("Launched %s in new tab", taskName)
+	m.updateStatusBar()
+	return m, tea.Batch(
+		loadTasks(m.svc),
+		clearMessageCmd(),
+	)
+}
+
 // NewTaskRequested returns true if the user pressed 'n' to start a new task.
+// Kept for backward compatibility but should no longer trigger.
 func (m Model) NewTaskRequested() bool {
 	return m.newTask
 }

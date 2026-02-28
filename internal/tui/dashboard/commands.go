@@ -2,10 +2,13 @@ package dashboard
 
 import (
 	"fmt"
+	"strings"
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/tSquaredd/work-cli/internal/github"
 	"github.com/tSquaredd/work-cli/internal/service"
+	"github.com/tSquaredd/work-cli/internal/worktree"
+	"github.com/tSquaredd/work-cli/internal/workspace"
 )
 
 // Message types for async data fetching.
@@ -204,5 +207,74 @@ func replyToIssueComment(dir string, prNumber int, body string) tea.Cmd {
 	return func() tea.Msg {
 		err := github.ReplyToIssue(dir, prNumber, body)
 		return commentRepliedMsg{err: err}
+	}
+}
+
+// --- New task overlay messages ---
+
+// newTaskFormDoneMsg signals that the current form step completed.
+type newTaskFormDoneMsg struct{}
+
+// newTaskFormCancelMsg signals that the form was cancelled (Esc).
+type newTaskFormCancelMsg struct{}
+
+// newTaskCreatedMsg is sent when worktree creation finishes.
+type newTaskCreatedMsg struct {
+	dirs     []string
+	progress []string
+	err      error
+}
+
+// createWorktrees runs fetch/create/link for each repo config in the background.
+func createWorktrees(ws *workspace.Workspace, taskName string, configs []repoConfig) tea.Cmd {
+	return func() tea.Msg {
+		var dirs []string
+		var progress []string
+
+		for _, cfg := range configs {
+			repo := ws.RepoByAlias(cfg.Alias)
+			if repo == nil {
+				continue
+			}
+			wtDir := worktree.WorktreeDir(ws, taskName, cfg.Alias)
+
+			// Fetch
+			progress = append(progress, fmt.Sprintf("%s: fetching origin/%s...", cfg.Alias, cfg.BaseBranch))
+			_ = worktree.Fetch(repo.Path, cfg.BaseBranch)
+
+			// Create
+			result := worktree.Create(worktree.CreateConfig{
+				RepoDir:     repo.Path,
+				WorktreeDir: wtDir,
+				Branch:      cfg.Branch,
+				BaseBranch:  cfg.BaseBranch,
+			})
+
+			if result.Error != nil {
+				progress = append(progress, fmt.Sprintf("%s: failed — %s", cfg.Alias, result.Error))
+				continue
+			}
+
+			if !result.Created {
+				progress = append(progress, fmt.Sprintf("%s: worktree already exists", cfg.Alias))
+			} else if result.Attached {
+				progress = append(progress, fmt.Sprintf("%s: attached to existing branch %s", cfg.Alias, cfg.Branch))
+			} else {
+				progress = append(progress, fmt.Sprintf("%s: created (%s from origin/%s)", cfg.Alias, cfg.Branch, cfg.BaseBranch))
+			}
+
+			// Link build files
+			linkResult := worktree.LinkBuildFiles(result.Dir, repo.Path)
+			if len(linkResult.Files) > 0 {
+				progress = append(progress, fmt.Sprintf("%s: linked %s", cfg.Alias, strings.Join(linkResult.Files, ", ")))
+			}
+
+			dirs = append(dirs, result.Dir)
+		}
+
+		if len(dirs) == 0 {
+			return newTaskCreatedMsg{err: fmt.Errorf("no worktrees created")}
+		}
+		return newTaskCreatedMsg{dirs: dirs, progress: progress}
 	}
 }

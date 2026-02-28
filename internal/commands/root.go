@@ -114,8 +114,6 @@ var rootCmd = &cobra.Command{
 				if taskName != "" {
 					_ = tui.RunOpenPR(ws, taskName, m.SelectedWorktreeAlias())
 				}
-			case m.NewTaskRequested():
-				_ = tui.RunNewTaskSpawn(ws)
 			default:
 				return nil
 			}

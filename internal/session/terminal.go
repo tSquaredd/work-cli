@@ -35,15 +35,15 @@ type ghosttyOpener struct{}
 func (o *ghosttyOpener) OpenTab(command, title string) (int, error) {
 	fullCmd := fmt.Sprintf("printf '\\033]0;%s\\007' && %s", title, command)
 
-	if isGhosttyRunning() {
-		return o.openViaAppleScript(fullCmd)
+	// Try AppleScript first (new window in running instance).
+	// This avoids case-sensitivity issues with pgrep — macOS may report
+	// the process as "ghostty" (lowercase) while pgrep -x "Ghostty" fails.
+	pid, err := o.openViaAppleScript(fullCmd)
+	if err == nil {
+		return pid, nil
 	}
+	// AppleScript failed (Ghostty not running) — cold start via CLI
 	return o.openViaCLI(fullCmd)
-}
-
-// isGhosttyRunning checks if a Ghostty process is already running.
-func isGhosttyRunning() bool {
-	return exec.Command("pgrep", "-x", "Ghostty").Run() == nil
 }
 
 // openViaAppleScript opens a new window in the running Ghostty instance.
