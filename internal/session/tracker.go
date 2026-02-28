@@ -7,6 +7,8 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strconv"
+	"strings"
 	"syscall"
 	"time"
 )
@@ -53,24 +55,42 @@ func (t *Tracker) Register(rec SessionRecord) error {
 	return os.WriteFile(path, data, 0o644)
 }
 
-// Unregister removes the session PID file for a task.
+// Unregister removes the session PID file and shell PID sidecar for a task.
 func (t *Tracker) Unregister(taskName string) error {
 	path := t.pidFilePath(taskName)
 	if err := os.Remove(path); err != nil && !os.IsNotExist(err) {
+		return err
+	}
+	// Also remove the shell PID sidecar file
+	shellPath := t.ShellPIDFile(taskName)
+	if err := os.Remove(shellPath); err != nil && !os.IsNotExist(err) {
 		return err
 	}
 	return nil
 }
 
 // Get returns the session record for a task if it exists and the process is alive.
+// It checks the shell PID sidecar first (reliable — dies when tab closes),
+// then falls back to the JSON PID for backward compatibility.
 func (t *Tracker) Get(taskName string) (SessionRecord, bool) {
 	rec, err := t.read(taskName)
 	if err != nil {
 		return SessionRecord{}, false
 	}
 
+	// Prefer shell PID (written by the shell inside the tab)
+	if shellPID, ok := t.readShellPID(taskName); ok {
+		if isProcessAlive(shellPID) {
+			rec.PID = shellPID
+			return rec, true
+		}
+		// Shell PID exists but is dead — session is gone
+		_ = t.Unregister(taskName)
+		return SessionRecord{}, false
+	}
+
+	// Fallback: check the JSON PID (legacy sessions without shell PID)
 	if !isProcessAlive(rec.PID) {
-		// Stale PID file — clean up
 		_ = t.Unregister(taskName)
 		return SessionRecord{}, false
 	}
@@ -120,6 +140,32 @@ func (t *Tracker) read(taskName string) (SessionRecord, error) {
 		return SessionRecord{}, err
 	}
 	return rec, nil
+}
+
+// ShellPIDFile returns the path for the shell PID sidecar file.
+func (t *Tracker) ShellPIDFile(taskName string) string {
+	return filepath.Join(t.stateDir, taskName+".shellpid")
+}
+
+// readShellPID reads and parses the shell PID from the sidecar file.
+func (t *Tracker) readShellPID(taskName string) (int, bool) {
+	data, err := os.ReadFile(t.ShellPIDFile(taskName))
+	if err != nil {
+		return 0, false
+	}
+	pid, err := strconv.Atoi(strings.TrimSpace(string(data)))
+	if err != nil || pid <= 0 {
+		return 0, false
+	}
+	return pid, true
+}
+
+// WrapCommand prepends a shell PID recording snippet to the given command.
+// The shell writes its own PID to a sidecar file before executing the command,
+// providing reliable liveness detection (the shell dies when the tab closes).
+func (t *Tracker) WrapCommand(taskName, command string) string {
+	pidFile := t.ShellPIDFile(taskName)
+	return fmt.Sprintf("echo $$ > %q && %s", pidFile, command)
 }
 
 func (t *Tracker) pidFilePath(taskName string) string {

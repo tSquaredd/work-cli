@@ -322,6 +322,15 @@ func SpawnInTab(cfg LaunchConfig) error {
 		return err
 	}
 
+	// Create tracker early so we can wrap the command with shell PID tracking
+	var tracker *session.Tracker
+	if cfg.Workspace != nil {
+		t, tErr := session.NewTracker(cfg.Workspace.Root)
+		if tErr == nil {
+			tracker = t
+		}
+	}
+
 	claudePath, err := exec.LookPath("claude")
 	if err != nil {
 		return fmt.Errorf("claude not found in PATH — install with: npm install -g @anthropic-ai/claude-code")
@@ -346,6 +355,12 @@ func SpawnInTab(cfg LaunchConfig) error {
 	cmdParts = append(cmdParts, strings.Join(args, " "))
 
 	command := strings.Join(cmdParts, " && ")
+
+	// Wrap command with shell PID tracking
+	if tracker != nil {
+		command = tracker.WrapCommand(cfg.TaskName, command)
+	}
+
 	tabTitle := "work: " + cfg.TaskName
 
 	opener := session.DetectTerminal()
@@ -355,19 +370,16 @@ func SpawnInTab(cfg LaunchConfig) error {
 	}
 
 	// Register session
-	if cfg.Workspace != nil {
-		tracker, tErr := session.NewTracker(cfg.Workspace.Root)
-		if tErr == nil {
-			rec := session.SessionRecord{
-				TaskName:      cfg.TaskName,
-				PID:           pid,
-				Dirs:          cfg.Dirs,
-				LaunchedAt:    time.Now(),
-				TerminalTab:   tabTitle,
-				WorkspaceRoot: cfg.Workspace.Root,
-			}
-			_ = tracker.Register(rec)
+	if tracker != nil {
+		rec := session.SessionRecord{
+			TaskName:      cfg.TaskName,
+			PID:           pid,
+			Dirs:          cfg.Dirs,
+			LaunchedAt:    time.Now(),
+			TerminalTab:   tabTitle,
+			WorkspaceRoot: cfg.Workspace.Root,
 		}
+		_ = tracker.Register(rec)
 	}
 
 	return nil

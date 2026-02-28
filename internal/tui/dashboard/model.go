@@ -566,6 +566,11 @@ func (m Model) handleResume() (tea.Model, tea.Cmd) {
 		return m, nil
 	}
 
+	// If session is already active, focus the existing window
+	if sel.HasSession {
+		return m.handleAttach()
+	}
+
 	// Build the claude command to run in a new tab
 	dirs := sel.Dirs()
 	if len(dirs) == 0 {
@@ -603,6 +608,12 @@ func (m Model) handleResume() (tea.Model, tea.Cmd) {
 	cmdParts = append(cmdParts, strings.Join(args, " "))
 
 	command := strings.Join(cmdParts, " && ")
+
+	// Wrap command with shell PID tracking
+	if m.svc.Tracker != nil {
+		command = m.svc.Tracker.WrapCommand(sel.Name, command)
+	}
+
 	tabTitle := "work: " + sel.Name
 
 	// Spawn in new terminal tab
@@ -1315,6 +1326,12 @@ func (m Model) launchNewTask() (tea.Model, tea.Cmd) {
 	cmdParts = append(cmdParts, strings.Join(args, " "))
 
 	command := strings.Join(cmdParts, " && ")
+
+	// Wrap command with shell PID tracking
+	if m.svc.Tracker != nil {
+		command = m.svc.Tracker.WrapCommand(taskName, command)
+	}
+
 	tabTitle := "work: " + taskName
 
 	// Spawn in new terminal tab
