@@ -19,7 +19,7 @@ import (
 type LaunchConfig struct {
 	Workspace    *workspace.Workspace
 	TaskName     string
-	Dirs         []string         // Worktree directories (first is primary CWD)
+	Dirs         []string         // Worktree directories (all passed via --add-dir)
 	Comment      *CommentContext  // optional: PR review comment context
 	InitialPrompt string          // optional: initial user message passed via positional arg
 	PlanMode     bool             // if true, launch with --permission-mode plan
@@ -93,7 +93,7 @@ func Prepare(cfg LaunchConfig) error {
 	var repoTablePlain strings.Builder
 	var gitRulesPlain strings.Builder
 
-	for i, d := range cfg.Dirs {
+	for _, d := range cfg.Dirs {
 		rname := filepath.Base(d)
 		branch := worktree.Branch(d)
 		desc := "Git repository"
@@ -101,14 +101,7 @@ func Prepare(cfg LaunchConfig) error {
 			desc = repo.Description
 		}
 
-		role := ""
-		if i == 0 {
-			role = " **(primary CWD)**"
-		} else {
-			role = " (added via --add-dir)"
-		}
-
-		fmt.Fprintf(&repoTable, "| **%s** | `%s` | `%s` | %s%s |\n", rname, d, branch, desc, role)
+		fmt.Fprintf(&repoTable, "| **%s** | `%s` | `%s` | %s |\n", rname, d, branch, desc)
 		fmt.Fprintf(&gitInstructions, "- **%s**: `cd %s` then run git commands\n", rname, d)
 		fmt.Fprintf(&repoTablePlain, "  - %s: %s (branch: %s, type: %s)\n", rname, d, branch, desc)
 		fmt.Fprintf(&gitRulesPlain, "  - %s: cd %s then run git commands\n", rname, d)
@@ -294,10 +287,8 @@ func Exec(cfg LaunchConfig) error {
 	systemPrompt := BuildSystemPrompt(cfg)
 
 	args := []string{"claude"}
-	for i, d := range cfg.Dirs {
-		if i > 0 {
-			args = append(args, "--add-dir", d)
-		}
+	for _, d := range cfg.Dirs {
+		args = append(args, "--add-dir", d)
 	}
 	args = append(args, "--append-system-prompt", systemPrompt)
 
@@ -316,9 +307,9 @@ func Exec(cfg LaunchConfig) error {
 		}
 	}
 
-	// Change to first worktree directory
-	if err := os.Chdir(cfg.Dirs[0]); err != nil {
-		return fmt.Errorf("changing to worktree directory: %w", err)
+	// Change to workspace root directory
+	if err := os.Chdir(cfg.Workspace.Root); err != nil {
+		return fmt.Errorf("changing to workspace root: %w", err)
 	}
 
 	return syscall.Exec(claudePath, args, os.Environ())
@@ -339,13 +330,11 @@ func SpawnInTab(cfg LaunchConfig) error {
 	systemPrompt := BuildSystemPrompt(cfg)
 
 	var cmdParts []string
-	cmdParts = append(cmdParts, fmt.Sprintf("cd %q", cfg.Dirs[0]))
+	cmdParts = append(cmdParts, fmt.Sprintf("cd %q", cfg.Workspace.Root))
 
 	args := []string{claudePath}
-	for i, d := range cfg.Dirs {
-		if i > 0 {
-			args = append(args, "--add-dir", d)
-		}
+	for _, d := range cfg.Dirs {
+		args = append(args, "--add-dir", d)
 	}
 	args = append(args, "--append-system-prompt", fmt.Sprintf("%q", systemPrompt))
 	if cfg.PlanMode {

@@ -593,13 +593,11 @@ func (m Model) handleResume() (tea.Model, tea.Cmd) {
 
 	systemPrompt := claude.BuildSystemPrompt(cfg)
 	var cmdParts []string
-	cmdParts = append(cmdParts, fmt.Sprintf("cd %q", dirs[0]))
+	cmdParts = append(cmdParts, fmt.Sprintf("cd %q", m.svc.Workspace.Root))
 
 	args := []string{claudePath}
-	for i, d := range dirs {
-		if i > 0 {
-			args = append(args, "--add-dir", d)
-		}
+	for _, d := range dirs {
+		args = append(args, "--add-dir", d)
 	}
 	args = append(args, "--append-system-prompt", fmt.Sprintf("%q", systemPrompt))
 	cmdParts = append(cmdParts, strings.Join(args, " "))
@@ -1307,13 +1305,11 @@ func (m Model) launchNewTask() (tea.Model, tea.Cmd) {
 
 	systemPrompt := claude.BuildSystemPrompt(cfg)
 	var cmdParts []string
-	cmdParts = append(cmdParts, fmt.Sprintf("cd %q", dirs[0]))
+	cmdParts = append(cmdParts, fmt.Sprintf("cd %q", m.svc.Workspace.Root))
 
 	args := []string{claudePath}
-	for i, d := range dirs {
-		if i > 0 {
-			args = append(args, "--add-dir", d)
-		}
+	for _, d := range dirs {
+		args = append(args, "--add-dir", d)
 	}
 	args = append(args, "--append-system-prompt", fmt.Sprintf("%q", systemPrompt))
 	cmdParts = append(cmdParts, strings.Join(args, " "))
