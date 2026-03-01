@@ -86,7 +86,13 @@ func (m *newTaskModel) initPickRepos() tea.Cmd {
 			huh.NewMultiSelect[string]().
 				Title("Which repo(s) are you working in?").
 				Options(options...).
-				Value(&m.selectedAliases),
+				Value(&m.selectedAliases).
+				Validate(func(s []string) error {
+					if len(s) == 0 {
+						return fmt.Errorf("select at least one repo (space to toggle)")
+					}
+					return nil
+				}),
 		),
 	).WithTheme(ui.HuhTheme()).
 		WithWidth(m.formWidth()).
