@@ -52,7 +52,8 @@ func prInfoFromJSON(j ghPRJSON) PRInfo {
 
 // CreateInBrowser opens the browser to create a new PR for the current branch.
 func CreateInBrowser(dir string) error {
-	cmd := exec.Command("gh", "-C", dir, "pr", "create", "--web")
+	cmd := exec.Command("gh", "pr", "create", "--web")
+	cmd.Dir = dir
 	out, err := cmd.CombinedOutput()
 	if err != nil {
 		return fmt.Errorf("gh pr create --web: %s: %w", strings.TrimSpace(string(out)), err)
@@ -62,9 +63,10 @@ func CreateInBrowser(dir string) error {
 
 // FindPRForBranch finds the PR associated with the current branch in the given directory.
 func FindPRForBranch(dir string) (*PRInfo, error) {
-	cmd := exec.Command("gh", "-C", dir, "pr", "view",
+	cmd := exec.Command("gh", "pr", "view",
 		"--json", "number,title,url,state,reviewDecision,comments,headRefName,baseRefName,updatedAt",
 	)
+	cmd.Dir = dir
 	out, err := cmd.Output()
 	if err != nil {
 		return nil, err // no PR found or gh error
@@ -96,11 +98,12 @@ type ghPRListJSON struct {
 
 // ListPRsForBranches returns PRs matching the given branch names.
 func ListPRsForBranches(dir string, branches []string) ([]PRInfo, error) {
-	cmd := exec.Command("gh", "-C", dir, "pr", "list",
+	cmd := exec.Command("gh", "pr", "list",
 		"--state", "all",
 		"--json", "number,title,url,state,reviewDecision,comments,headRefName,baseRefName,updatedAt",
 		"--limit", "100",
 	)
+	cmd.Dir = dir
 	out, err := cmd.Output()
 	if err != nil {
 		return nil, err
@@ -139,6 +142,7 @@ func ListPRsForBranches(dir string, branches []string) ([]PRInfo, error) {
 
 // OpenInBrowser opens the PR for the current branch in the default browser.
 func OpenInBrowser(dir string) error {
-	cmd := exec.Command("gh", "-C", dir, "pr", "view", "--web")
+	cmd := exec.Command("gh", "pr", "view", "--web")
+	cmd.Dir = dir
 	return cmd.Run()
 }

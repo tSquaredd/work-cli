@@ -8,7 +8,8 @@ import (
 
 // GetPRDiff fetches the unified diff for a PR.
 func GetPRDiff(repoDir string, prNumber int) (string, error) {
-	cmd := exec.Command("gh", "-C", repoDir, "pr", "diff", fmt.Sprintf("%d", prNumber))
+	cmd := exec.Command("gh", "pr", "diff", fmt.Sprintf("%d", prNumber))
+	cmd.Dir = repoDir
 	out, err := cmd.Output()
 	if err != nil {
 		return "", fmt.Errorf("gh pr diff: %w", err)
@@ -18,11 +19,12 @@ func GetPRDiff(repoDir string, prNumber int) (string, error) {
 
 // GetPRHeadSHA fetches the HEAD commit SHA for a PR.
 func GetPRHeadSHA(repoDir string, prNumber int) (string, error) {
-	cmd := exec.Command("gh", "-C", repoDir, "pr", "view",
+	cmd := exec.Command("gh", "pr", "view",
 		fmt.Sprintf("%d", prNumber),
 		"--json", "headRefOid",
 		"--jq", ".headRefOid",
 	)
+	cmd.Dir = repoDir
 	out, err := cmd.Output()
 	if err != nil {
 		return "", fmt.Errorf("gh pr view: %w", err)
