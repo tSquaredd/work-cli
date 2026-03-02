@@ -39,7 +39,7 @@ type Model struct {
 	showDiffView bool
 
 	// New task overlay
-	newTaskView  newTaskModel
+	newTaskView  *newTaskModel
 	showNewTask  bool
 
 	// Standalone PRs

@@ -60,11 +60,11 @@ type newTaskModel struct {
 	height int
 }
 
-func newNewTaskModel(ws *workspace.Workspace) newTaskModel {
+func newNewTaskModel(ws *workspace.Workspace) *newTaskModel {
 	s := spinner.New()
 	s.Spinner = spinner.MiniDot
 	s.Style = lipgloss.NewStyle().Foreground(ui.ColorPrimary)
-	return newTaskModel{
+	return &newTaskModel{
 		ws:      ws,
 		spinner: s,
 	}
