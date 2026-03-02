@@ -339,7 +339,13 @@ func SpawnInTab(cfg LaunchConfig) error {
 	systemPrompt := BuildSystemPrompt(cfg)
 
 	var cmdParts []string
-	cmdParts = append(cmdParts, fmt.Sprintf("cd %q", cfg.Workspace.Root))
+	// Single repo: launch in the repo's worktree directory.
+	// Multiple repos: launch in the workspace root.
+	launchDir := cfg.Workspace.Root
+	if len(cfg.Dirs) == 1 {
+		launchDir = cfg.Dirs[0]
+	}
+	cmdParts = append(cmdParts, fmt.Sprintf("cd %q", launchDir))
 
 	args := []string{claudePath}
 	for _, d := range cfg.Dirs {

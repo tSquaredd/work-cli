@@ -598,7 +598,13 @@ func (m Model) handleResume() (tea.Model, tea.Cmd) {
 
 	systemPrompt := claude.BuildSystemPrompt(cfg)
 	var cmdParts []string
-	cmdParts = append(cmdParts, fmt.Sprintf("cd %q", m.svc.Workspace.Root))
+	// Single repo: launch in the repo's worktree directory.
+	// Multiple repos: launch in the workspace root.
+	launchDir := m.svc.Workspace.Root
+	if len(dirs) == 1 {
+		launchDir = dirs[0]
+	}
+	cmdParts = append(cmdParts, fmt.Sprintf("cd %q", launchDir))
 
 	args := []string{claudePath}
 	for _, d := range dirs {
@@ -1316,7 +1322,13 @@ func (m Model) launchNewTask() (tea.Model, tea.Cmd) {
 
 	systemPrompt := claude.BuildSystemPrompt(cfg)
 	var cmdParts []string
-	cmdParts = append(cmdParts, fmt.Sprintf("cd %q", m.svc.Workspace.Root))
+	// Single repo: launch in the repo's worktree directory.
+	// Multiple repos: launch in the workspace root.
+	launchDir := m.svc.Workspace.Root
+	if len(dirs) == 1 {
+		launchDir = dirs[0]
+	}
+	cmdParts = append(cmdParts, fmt.Sprintf("cd %q", launchDir))
 
 	args := []string{claudePath}
 	for _, d := range dirs {
