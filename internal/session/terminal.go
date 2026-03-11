@@ -76,7 +76,6 @@ func (o *ghosttyOpener) openViaAppleScript(fullCmd string) (int, error) {
 	if err != nil {
 		return 0, fmt.Errorf("Ghostty command file: %w", err)
 	}
-	defer cleanup()
 
 	script := fmt.Sprintf(`
 tell application "Ghostty"
@@ -99,8 +98,10 @@ end tell
 
 	cmd := exec.Command("osascript", "-e", script)
 	if err := cmd.Run(); err != nil {
+		cleanup() // remove temp file since terminal never got the command
 		return 0, fmt.Errorf("Ghostty AppleScript failed: %w", err)
 	}
+	// temp file self-deletes via "rm -f" in the exec snippet
 	return 0, nil
 }
 
@@ -147,7 +148,6 @@ func (o *iterm2Opener) OpenTab(command, title string) (int, error) {
 	if err != nil {
 		return 0, fmt.Errorf("iTerm2 command file: %w", err)
 	}
-	defer cleanup()
 
 	script := fmt.Sprintf(`
 tell application "iTerm2"
@@ -163,6 +163,7 @@ end tell
 
 	cmd := exec.Command("osascript", "-e", script)
 	if err := cmd.Run(); err != nil {
+		cleanup()
 		return 0, fmt.Errorf("iTerm2 AppleScript failed: %w", err)
 	}
 
@@ -202,7 +203,6 @@ func (o *terminalAppOpener) OpenTab(command, title string) (int, error) {
 	if err != nil {
 		return 0, fmt.Errorf("Terminal.app command file: %w", err)
 	}
-	defer cleanup()
 
 	script := fmt.Sprintf(`
 tell application "Terminal"
@@ -218,6 +218,7 @@ end tell
 
 	cmd := exec.Command("osascript", "-e", script)
 	if err := cmd.Run(); err != nil {
+		cleanup()
 		return 0, fmt.Errorf("Terminal.app AppleScript failed: %w", err)
 	}
 
