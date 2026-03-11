@@ -7,6 +7,30 @@ import (
 	"strings"
 )
 
+// writeCommandFile writes command to a temp script and returns a short shell
+// snippet that sources and self-deletes it. This avoids AppleScript escaping
+// and length issues that corrupt $$, long --append-system-prompt flags, etc.
+func writeCommandFile(command string) (execCmd string, cleanup func(), err error) {
+	f, err := os.CreateTemp("", "work-cli-cmd-*.sh")
+	if err != nil {
+		return "", nil, fmt.Errorf("create temp command file: %w", err)
+	}
+	path := f.Name()
+	cleanup = func() { os.Remove(path) }
+
+	if _, err := f.WriteString(command); err != nil {
+		cleanup()
+		return "", nil, fmt.Errorf("write temp command file: %w", err)
+	}
+	if err := f.Close(); err != nil {
+		cleanup()
+		return "", nil, fmt.Errorf("close temp command file: %w", err)
+	}
+
+	execCmd = fmt.Sprintf(`. "%s"; rm -f "%s"`, path, path)
+	return execCmd, cleanup, nil
+}
+
 // TabOpener opens a new terminal window/tab and runs a command in it.
 type TabOpener interface {
 	OpenTab(command, title string) (pid int, err error)
@@ -48,6 +72,12 @@ func (o *ghosttyOpener) OpenTab(command, title string) (int, error) {
 
 // openViaAppleScript opens a new window in the running Ghostty instance.
 func (o *ghosttyOpener) openViaAppleScript(fullCmd string) (int, error) {
+	execCmd, cleanup, err := writeCommandFile(fullCmd)
+	if err != nil {
+		return 0, fmt.Errorf("Ghostty command file: %w", err)
+	}
+	defer cleanup()
+
 	script := fmt.Sprintf(`
 tell application "Ghostty"
 	activate
@@ -65,7 +95,7 @@ tell application "System Events"
 		key code 36
 	end tell
 end tell
-`, fullCmd)
+`, execCmd)
 
 	cmd := exec.Command("osascript", "-e", script)
 	if err := cmd.Run(); err != nil {
@@ -113,6 +143,12 @@ end tell
 type iterm2Opener struct{}
 
 func (o *iterm2Opener) OpenTab(command, title string) (int, error) {
+	execCmd, cleanup, err := writeCommandFile(command)
+	if err != nil {
+		return 0, fmt.Errorf("iTerm2 command file: %w", err)
+	}
+	defer cleanup()
+
 	script := fmt.Sprintf(`
 tell application "iTerm2"
 	tell current window
@@ -123,7 +159,7 @@ tell application "iTerm2"
 		end tell
 	end tell
 end tell
-`, title, command)
+`, title, execCmd)
 
 	cmd := exec.Command("osascript", "-e", script)
 	if err := cmd.Run(); err != nil {
@@ -162,6 +198,12 @@ end tell
 type terminalAppOpener struct{}
 
 func (o *terminalAppOpener) OpenTab(command, title string) (int, error) {
+	execCmd, cleanup, err := writeCommandFile(command)
+	if err != nil {
+		return 0, fmt.Errorf("Terminal.app command file: %w", err)
+	}
+	defer cleanup()
+
 	script := fmt.Sprintf(`
 tell application "Terminal"
 	activate
@@ -172,7 +214,7 @@ tell application "Terminal"
 	do script %q in front window
 	set custom title of front window to %q
 end tell
-`, command, title)
+`, execCmd, title)
 
 	cmd := exec.Command("osascript", "-e", script)
 	if err := cmd.Run(); err != nil {
