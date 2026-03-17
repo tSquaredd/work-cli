@@ -78,11 +78,18 @@ func (o *ghosttyOpener) openViaAppleScript(fullCmd string) (int, error) {
 	}
 
 	script := fmt.Sprintf(`
-do shell script "open -a Ghostty"
+tell application "System Events"
+	if not (exists process "Ghostty") then
+		error "Ghostty not running"
+	end if
+	tell process "Ghostty"
+		set frontmost to true
+	end tell
+end tell
 delay 0.3
 tell application "System Events"
 	tell process "Ghostty"
-		click menu item "New Tab" of menu "Shell" of menu bar 1
+		keystroke "t" using command down
 	end tell
 end tell
 delay 0.5
@@ -130,7 +137,14 @@ func (o *ghosttyOpener) openViaCLI(fullCmd string) (int, error) {
 
 func (o *ghosttyOpener) FocusTab(identifier string) error {
 	script := fmt.Sprintf(`
-do shell script "open -a Ghostty"
+tell application "System Events"
+	if not (exists process "Ghostty") then
+		error "Ghostty not running"
+	end if
+	tell process "Ghostty"
+		set frontmost to true
+	end tell
+end tell
 delay 0.3
 tell application "System Events"
 	tell process "Ghostty"
