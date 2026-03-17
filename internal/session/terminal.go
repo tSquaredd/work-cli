@@ -78,11 +78,9 @@ func (o *ghosttyOpener) openViaAppleScript(fullCmd string) (int, error) {
 	}
 
 	script := fmt.Sprintf(`
-tell application "Ghostty"
-	activate
-end tell
-delay 0.3
 tell application "System Events"
+	set frontmost of process "Ghostty" to true
+	delay 0.3
 	tell process "Ghostty"
 		click menu item "New Tab" of menu "Shell" of menu bar 1
 	end tell
@@ -132,11 +130,9 @@ func (o *ghosttyOpener) openViaCLI(fullCmd string) (int, error) {
 
 func (o *ghosttyOpener) FocusTab(identifier string) error {
 	script := fmt.Sprintf(`
-tell application "Ghostty"
-	activate
-end tell
-delay 0.3
 tell application "System Events"
+	set frontmost of process "Ghostty" to true
+	delay 0.3
 	tell process "Ghostty"
 		set maxTabs to 20
 		repeat maxTabs times
