@@ -393,6 +393,13 @@ func (m Model) handleStandalonePRKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		m.updateStatusBar()
 		return m, nil
 
+	case "r":
+		row := m.taskList.selectedRow()
+		if row != nil && row.kind == rowMyPR {
+			return m.handleResumeFromPR()
+		}
+		return m, nil
+
 	case "d":
 		return m.handleStandalonePRDiff()
 
@@ -565,7 +572,10 @@ func (m Model) handleResume() (tea.Model, tea.Cmd) {
 	if sel == nil {
 		return m, nil
 	}
+	return m.resumeTask(sel)
+}
 
+func (m Model) resumeTask(sel *service.TaskView) (tea.Model, tea.Cmd) {
 	// If session is already active, focus the existing window
 	if sel.HasSession {
 		return m.handleAttach()
@@ -648,6 +658,42 @@ func (m Model) handleResume() (tea.Model, tea.Cmd) {
 		loadTasks(m.svc),
 		clearMessageCmd(),
 	)
+}
+
+func (m Model) findTaskForPR(pr *service.StandalonePR) *service.TaskView {
+	for i, task := range m.taskList.tasks {
+		for _, wt := range task.Worktrees {
+			if wt.Alias == pr.RepoAlias && wt.Branch == pr.HeadBranch {
+				return &m.taskList.tasks[i]
+			}
+		}
+	}
+	return nil
+}
+
+func (m Model) handleResumeFromPR() (tea.Model, tea.Cmd) {
+	pr := m.taskList.selectedStandalonePR()
+	if pr == nil {
+		return m, nil
+	}
+
+	// Case 1: matching task exists — resume it directly
+	if task := m.findTaskForPR(pr); task != nil {
+		return m.resumeTask(task)
+	}
+
+	// Case 2: no match — launch resume-from-PR wizard
+	return m.startResumeFromPR(pr)
+}
+
+func (m Model) startResumeFromPR(pr *service.StandalonePR) (tea.Model, tea.Cmd) {
+	m.newTaskView = newResumeFromPRModel(m.svc.Workspace, pr)
+	m.newTaskView.width = m.width
+	m.newTaskView.height = m.height
+	m.showNewTask = true
+	m.updateStatusBar()
+	cmd := m.newTaskView.initPickRepos()
+	return m, cmd
 }
 
 func (m Model) handleDiff() (tea.Model, tea.Cmd) {
@@ -1131,6 +1177,7 @@ func (m *Model) updateStatusBar() {
 
 	// Check if cursor is on a standalone PR or repo header
 	m.statusBar.standalonePR = row != nil && (row.kind == rowMyPR || row.kind == rowOtherPR)
+	m.statusBar.isMyPR = row != nil && row.kind == rowMyPR
 	m.statusBar.repoHeader = row != nil && row.kind == rowRepoHeader
 	m.statusBar.inRepoLevel = m.taskList.navLevel == navRepo
 	if m.showDiffView {

@@ -167,6 +167,12 @@ func RecentBranches(dir string, limit int) []string {
 	return branches
 }
 
+// HasRemoteBranch checks if origin/{branch} exists locally (no network call).
+func HasRemoteBranch(repoDir, branch string) bool {
+	cmd := exec.Command("git", "-C", repoDir, "rev-parse", "--verify", "origin/"+branch)
+	return cmd.Run() == nil
+}
+
 // CurrentBranch returns the current branch of a repo (not a worktree).
 func CurrentBranch(dir string) string {
 	cmd := exec.Command("git", "-C", dir, "branch", "--show-current")

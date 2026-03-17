@@ -9,6 +9,7 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/huh"
 	"github.com/charmbracelet/lipgloss"
+	"github.com/tSquaredd/work-cli/internal/service"
 	"github.com/tSquaredd/work-cli/internal/ui"
 	"github.com/tSquaredd/work-cli/internal/worktree"
 	"github.com/tSquaredd/work-cli/internal/workspace"
@@ -40,6 +41,9 @@ type newTaskModel struct {
 	form    *huh.Form
 	spinner spinner.Model
 
+	// Resume-from-PR mode (non-nil = resume mode)
+	resumePR *service.StandalonePR
+
 	// Collected data
 	selectedRepos []workspace.Repo
 	taskName      string
@@ -70,6 +74,14 @@ func newNewTaskModel(ws *workspace.Workspace) *newTaskModel {
 	}
 }
 
+func newResumeFromPRModel(ws *workspace.Workspace, pr *service.StandalonePR) *newTaskModel {
+	m := newNewTaskModel(ws)
+	m.resumePR = pr
+	m.taskName = pr.HeadBranch
+	m.selectedAliases = []string{pr.RepoAlias}
+	return m
+}
+
 // initPickRepos creates the repo selection form.
 func (m *newTaskModel) initPickRepos() tea.Cmd {
 	m.step = stepPickRepos
@@ -80,19 +92,37 @@ func (m *newTaskModel) initPickRepos() tea.Cmd {
 		options[i] = huh.NewOption(label, r.Alias)
 	}
 
-	m.selectedAliases = nil
+	// In resume-from-PR mode, keep pre-selected aliases; otherwise reset.
+	if m.resumePR == nil {
+		m.selectedAliases = nil
+	}
+
+	validate := func(s []string) error {
+		if len(s) == 0 {
+			return fmt.Errorf("select at least one repo (space to toggle)")
+		}
+		if m.resumePR != nil {
+			found := false
+			for _, a := range s {
+				if a == m.resumePR.RepoAlias {
+					found = true
+					break
+				}
+			}
+			if !found {
+				return fmt.Errorf("%s must be selected (it has the PR)", m.resumePR.RepoAlias)
+			}
+		}
+		return nil
+	}
+
 	m.form = huh.NewForm(
 		huh.NewGroup(
 			huh.NewMultiSelect[string]().
 				Title("Which repo(s) are you working in?").
 				Options(options...).
 				Value(&m.selectedAliases).
-				Validate(func(s []string) error {
-					if len(s) == 0 {
-						return fmt.Errorf("select at least one repo (space to toggle)")
-					}
-					return nil
-				}),
+				Validate(validate),
 		),
 	).WithTheme(ui.HuhTheme()).
 		WithWidth(m.formWidth()).
@@ -122,6 +152,35 @@ func (m *newTaskModel) initTaskName() tea.Cmd {
 // initConfigRepo creates the branch config form for the current repo.
 func (m *newTaskModel) initConfigRepo() tea.Cmd {
 	m.step = stepConfigRepo
+
+	// In resume-from-PR mode, auto-configure repos that have the PR branch.
+	if m.resumePR != nil {
+		for m.configIdx < len(m.selectedRepos) {
+			repo := m.selectedRepos[m.configIdx]
+			isPRRepo := repo.Alias == m.resumePR.RepoAlias
+			hasRemote := !isPRRepo && worktree.HasRemoteBranch(repo.Path, m.resumePR.HeadBranch)
+			if isPRRepo || hasRemote {
+				m.configs = append(m.configs, repoConfig{
+					Alias:      repo.Alias,
+					Branch:     m.resumePR.HeadBranch,
+					BaseBranch: m.resumePR.HeadBranch,
+				})
+				m.configIdx++
+				continue
+			}
+			break // this repo needs manual config
+		}
+		// If all repos were auto-configured, jump to creation.
+		if m.configIdx >= len(m.selectedRepos) {
+			m.step = stepCreating
+			m.form = nil
+			return tea.Batch(
+				m.spinner.Tick,
+				createWorktrees(m.ws, m.taskName, m.configs),
+			)
+		}
+	}
+
 	repo := m.selectedRepos[m.configIdx]
 
 	// Default branch name
@@ -279,7 +338,11 @@ func (m *newTaskModel) view() string {
 	var b strings.Builder
 
 	// Title
-	b.WriteString(titleStyle.Render("New Task"))
+	title := "New Task"
+	if m.resumePR != nil {
+		title = fmt.Sprintf("Resume PR #%d", m.resumePR.Number)
+	}
+	b.WriteString(titleStyle.Render(title))
 	b.WriteString("\n")
 	b.WriteString(dimStyle.Render(strings.Repeat("─", min(m.width, 60))))
 	b.WriteString("\n\n")

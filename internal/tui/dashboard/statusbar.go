@@ -22,6 +22,7 @@ type statusBarModel struct {
 	showNewTask    bool
 	diffViewMode   diffViewMode
 	standalonePR   bool // cursor is on a standalone PR row
+	isMyPR         bool // cursor is on a "Your PRs" row
 	repoHeader     bool // cursor is on a repo header row
 	inRepoLevel    bool // cursor is inside a task's worktree list
 	message        string // transient status message
@@ -75,6 +76,9 @@ func (m statusBarModel) keybindView() string {
 	// Standalone PR selected
 	if m.standalonePR {
 		binds = append(binds, keyStyle.Render("↑↓")+descStyle.Render(":navigate"))
+		if m.isMyPR {
+			binds = append(binds, keyStyle.Render("r")+descStyle.Render(":resume"))
+		}
 		binds = append(binds, keyStyle.Render("d")+descStyle.Render(":diff"))
 		if m.ghAvailable {
 			binds = append(binds, keyStyle.Render("m")+descStyle.Render(":comments"))
