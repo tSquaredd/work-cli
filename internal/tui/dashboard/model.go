@@ -47,8 +47,9 @@ type Model struct {
 	otherPRs []service.StandalonePR
 
 	// State
-	confirming  bool
-	confirmTask string
+	confirming    bool
+	confirmTask   string
+	confirmAction string // "clean" or "test"
 	quitting    bool
 	newTask     bool // set when user presses 'n' to start a new task
 	openPR               bool   // set when user presses 'p' to open PR wizard
@@ -354,6 +355,9 @@ func (m Model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	case "c":
 		return m.handleClean()
 
+	case "t":
+		return m.handleTest()
+
 	case "a":
 		return m.handleAttach()
 
@@ -543,8 +547,23 @@ func (m Model) handleConfirmKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	switch key {
 	case "y", "Y":
 		taskName := m.confirmTask
+		action := m.confirmAction
 		m.confirming = false
 		m.confirmTask = ""
+		m.confirmAction = ""
+
+		if action == "test" {
+			m.statusBar.message = fmt.Sprintf("Switching repos for %s...", taskName)
+			m.statusBar.loading = true
+			return m, tea.Batch(m.statusBar.spinner.Tick, func() tea.Msg {
+				err := m.testTask(taskName)
+				if err != nil {
+					return actionResultMsg{message: fmt.Sprintf("Error: %s", err), isError: true}
+				}
+				return actionResultMsg{message: fmt.Sprintf("Switched local repos for %s", taskName)}
+			})
+		}
+
 		m.statusBar.message = fmt.Sprintf("Cleaning %s...", taskName)
 		m.statusBar.loading = true
 		return m, tea.Batch(m.statusBar.spinner.Tick, func() tea.Msg {
@@ -558,6 +577,7 @@ func (m Model) handleConfirmKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	case "n", "N", "esc":
 		m.confirming = false
 		m.confirmTask = ""
+		m.confirmAction = ""
 		m.statusBar.message = ""
 		return m, nil
 	}
@@ -789,12 +809,14 @@ func (m Model) handleClean() (tea.Model, tea.Cmd) {
 	if hasDirty {
 		m.confirming = true
 		m.confirmTask = sel.Name
+		m.confirmAction = "clean"
 		m.statusBar.message = fmt.Sprintf("Clean %s? Has uncommitted changes! (y/n)", sel.Name)
 		return m, nil
 	}
 
 	m.confirming = true
 	m.confirmTask = sel.Name
+	m.confirmAction = "clean"
 	m.statusBar.message = fmt.Sprintf("Clean %s? (y/n)", sel.Name)
 	return m, nil
 }
@@ -835,6 +857,86 @@ func (m Model) cleanTask(taskName string) error {
 		}
 	}
 
+	worktree.CleanupTaskDir(ws.Root, taskName)
+
+	// Unregister session if tracked
+	if m.svc.Tracker != nil {
+		_ = m.svc.Tracker.Unregister(taskName)
+	}
+
+	return nil
+}
+
+func (m Model) handleTest() (tea.Model, tea.Cmd) {
+	sel := m.taskList.selected()
+	if sel == nil {
+		return m, nil
+	}
+
+	// Pre-flight: all worktrees must be PUSHED (fresh inspection)
+	for _, wt := range sel.Worktrees {
+		status := worktree.InspectStatus(wt.Dir)
+		if status != worktree.StatusPushed {
+			m.statusBar.message = fmt.Sprintf("Cannot switch: %s is %s", wt.Alias, status)
+			return m, clearMessageCmd()
+		}
+	}
+
+	// Pre-flight: local repos must be clean
+	ws := m.svc.Workspace
+	for _, wt := range sel.Worktrees {
+		repo := ws.RepoByAlias(wt.Alias)
+		if repo == nil {
+			continue
+		}
+		if worktree.IsDirty(repo.Path) {
+			m.statusBar.message = fmt.Sprintf("Cannot switch: %s local repo has uncommitted changes", wt.Alias)
+			return m, clearMessageCmd()
+		}
+	}
+
+	m.confirming = true
+	m.confirmTask = sel.Name
+	m.confirmAction = "test"
+	m.statusBar.message = fmt.Sprintf("Test %s? Will switch local repos and remove worktrees. (y/n)", sel.Name)
+	return m, nil
+}
+
+func (m Model) testTask(taskName string) error {
+	detail := m.svc.TaskDetail(taskName)
+	if detail == nil {
+		return fmt.Errorf("task %q not found", taskName)
+	}
+
+	ws := m.svc.Workspace
+	for _, wt := range detail.Worktrees {
+		repo := ws.RepoByAlias(wt.Alias)
+		if repo == nil {
+			continue
+		}
+
+		// Fetch latest
+		if err := worktree.Fetch(repo.Path, wt.Branch); err != nil {
+			return fmt.Errorf("%s: fetch failed: %w", wt.Alias, err)
+		}
+
+		// Remove worktree but keep the branch
+		if err := worktree.Remove(repo.Path, wt.Dir, false); err != nil {
+			return fmt.Errorf("%s: remove worktree failed: %w", wt.Alias, err)
+		}
+
+		// Checkout branch in local repo
+		if err := worktree.Checkout(repo.Path, wt.Branch); err != nil {
+			return fmt.Errorf("%s: %w", wt.Alias, err)
+		}
+
+		// Pull latest
+		if err := worktree.Pull(repo.Path); err != nil {
+			return fmt.Errorf("%s: %w", wt.Alias, err)
+		}
+	}
+
+	// Cleanup task directory
 	worktree.CleanupTaskDir(ws.Root, taskName)
 
 	// Unregister session if tracked

@@ -1,6 +1,7 @@
 package worktree
 
 import (
+	"fmt"
 	"os/exec"
 	"strconv"
 	"strings"
@@ -171,6 +172,26 @@ func RecentBranches(dir string, limit int) []string {
 func HasRemoteBranch(repoDir, branch string) bool {
 	cmd := exec.Command("git", "-C", repoDir, "rev-parse", "--verify", "origin/"+branch)
 	return cmd.Run() == nil
+}
+
+// Checkout switches to the given branch.
+func Checkout(dir, branch string) error {
+	cmd := exec.Command("git", "-C", dir, "checkout", branch)
+	out, err := cmd.CombinedOutput()
+	if err != nil {
+		return fmt.Errorf("checkout %s: %s", branch, strings.TrimSpace(string(out)))
+	}
+	return nil
+}
+
+// Pull pulls the current branch from origin.
+func Pull(dir string) error {
+	cmd := exec.Command("git", "-C", dir, "pull")
+	out, err := cmd.CombinedOutput()
+	if err != nil {
+		return fmt.Errorf("pull: %s", strings.TrimSpace(string(out)))
+	}
+	return nil
 }
 
 // CurrentBranch returns the current branch of a repo (not a worktree).

@@ -100,6 +100,7 @@ func (m statusBarModel) keybindView() string {
 		}
 
 		binds = append(binds, keyStyle.Render("c")+descStyle.Render(":clean"))
+		binds = append(binds, keyStyle.Render("t")+descStyle.Render(":test"))
 
 		if m.hasActive {
 			binds = append(binds, keyStyle.Render("a")+descStyle.Render(":attach"))
