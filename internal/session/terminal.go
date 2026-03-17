@@ -84,7 +84,7 @@ end tell
 delay 0.3
 tell application "System Events"
 	tell process "Ghostty"
-		click menu item "New Window" of menu "File" of menu bar 1
+		click menu item "New Tab" of menu "Shell" of menu bar 1
 	end tell
 end tell
 delay 0.5
@@ -131,11 +131,26 @@ func (o *ghosttyOpener) openViaCLI(fullCmd string) (int, error) {
 }
 
 func (o *ghosttyOpener) FocusTab(identifier string) error {
-	script := `
+	script := fmt.Sprintf(`
 tell application "Ghostty"
 	activate
 end tell
-`
+delay 0.3
+tell application "System Events"
+	tell process "Ghostty"
+		set maxTabs to 20
+		repeat maxTabs times
+			set winTitle to name of front window
+			if winTitle contains %q then
+				return
+			end if
+			-- Cycle to next tab: Cmd+Shift+]
+			key code 30 using {command down, shift down}
+			delay 0.1
+		end repeat
+	end tell
+end tell
+`, identifier)
 	cmd := exec.Command("osascript", "-e", script)
 	return cmd.Run()
 }
