@@ -43,8 +43,10 @@ type newTaskModel struct {
 	spinner spinner.Model
 
 	// Resume-from-PR mode (non-nil = resume mode)
-	resumePR         *service.StandalonePR
-	needsSwitchForPR bool // true when the PR repo branch is checked out and needs a switch first
+	resumePR           *service.StandalonePR
+	needsSwitchForPR   bool   // true when the PR repo branch is checked out and needs a switch first
+	needsSwitchForRepo bool   // true when a non-PR repo's selected branch is checked out in main repo
+	pendingBranch      string // the intended branch while awaiting the needsSwitchForRepo form
 
 	// Collected data
 	selectedRepos []workspace.Repo
@@ -227,21 +229,55 @@ func (m *newTaskModel) initConfigRepo() tea.Cmd {
 		return m.form.Init()
 	}
 
+	// needsSwitchForRepo: show "switch to branch" form for non-PR repo when selected branch is checked out.
+	if m.needsSwitchForRepo {
+		localBranches := worktree.LocalBranches(repo.Path)
+		worktreeBranches := worktree.WorktreeBranches(repo.Path)
+		var opts []huh.Option[string]
+		for _, b := range localBranches {
+			if b != m.pendingBranch && !worktreeBranches[b] {
+				opts = append(opts, huh.NewOption(b, b))
+			}
+		}
+		m.curBranch = ""
+		if len(opts) > 0 {
+			m.curBranch = opts[0].Value
+		}
+		m.form = huh.NewForm(
+			huh.NewGroup(
+				huh.NewSelect[string]().
+					Title(fmt.Sprintf("%s — Switch to branch", repo.Alias)).
+					Description(fmt.Sprintf("%s is checked out. Pick a branch to switch %s to so the worktree can be created.", m.pendingBranch, repo.Alias)).
+					Options(opts...).
+					Value(&m.curBranch).
+					Height(10),
+			),
+		).WithTheme(ui.HuhTheme()).WithWidth(m.formWidth()).WithShowHelp(true)
+		return m.form.Init()
+	}
+
 	// Fix 1: for non-PR repos in resume mode, show a local branch selector.
 	if m.resumePR != nil {
 		localBranches := worktree.LocalBranches(repo.Path)
 		currentBranch := worktree.CurrentBranch(repo.Path)
+		worktreeBranches := worktree.WorktreeBranches(repo.Path)
 		m.curBranch = currentBranch
 		m.curBaseBranch = ""
-		if len(localBranches) > 0 {
-			opts := make([]huh.Option[string], len(localBranches))
-			for i, b := range localBranches {
-				label := b
-				if b == currentBranch {
-					label = b + " (current)"
-				}
-				opts[i] = huh.NewOption(label, b)
+
+		var opts []huh.Option[string]
+		for _, b := range localBranches {
+			if worktreeBranches[b] && b != currentBranch {
+				// Already in a worktree — skip entirely
+				continue
 			}
+			label := b
+			if b == currentBranch {
+				label = b + " (current)"
+			}
+			opts = append(opts, huh.NewOption(label, b))
+		}
+
+		if len(opts) > 0 {
 			m.form = huh.NewForm(
 				huh.NewGroup(
 					huh.NewSelect[string]().
@@ -254,7 +290,7 @@ func (m *newTaskModel) initConfigRepo() tea.Cmd {
 			).WithTheme(ui.HuhTheme()).WithWidth(m.formWidth()).WithShowHelp(true)
 			return m.form.Init()
 		}
-		// fallthrough to normal form if no local branches found
+		// fallthrough to normal form if no opts found
 	}
 
 	// Default branch name
@@ -349,6 +385,25 @@ func (m *newTaskModel) advanceStep() tea.Cmd {
 			return tea.Batch(m.spinner.Tick, createWorktrees(m.ws, m.taskName, m.configs))
 		}
 
+		// Handle the non-PR repo branch-switch form.
+		if m.needsSwitchForRepo {
+			m.configs = append(m.configs, repoConfig{
+				Alias:      m.selectedRepos[m.configIdx].Alias,
+				Branch:     m.pendingBranch,
+				BaseBranch: m.pendingBranch,
+				SwitchTo:   m.curBranch,
+			})
+			m.needsSwitchForRepo = false
+			m.pendingBranch = ""
+			m.configIdx++
+			if m.configIdx < len(m.selectedRepos) {
+				return m.initConfigRepo()
+			}
+			m.step = stepCreating
+			m.form = nil
+			return tea.Batch(m.spinner.Tick, createWorktrees(m.ws, m.taskName, m.configs))
+		}
+
 		// Save config for current repo
 		branch := m.curBranch
 		if branch == "" {
@@ -358,6 +413,14 @@ func (m *newTaskModel) advanceStep() tea.Cmd {
 		if baseBranch == "" {
 			baseBranch = worktree.CurrentBranch(m.selectedRepos[m.configIdx].Path)
 		}
+
+		// In resume mode, if user selected the currently checked-out branch, need a SwitchTo first.
+		if m.resumePR != nil && branch == worktree.CurrentBranch(m.selectedRepos[m.configIdx].Path) {
+			m.needsSwitchForRepo = true
+			m.pendingBranch = branch
+			return m.initConfigRepo()
+		}
+
 		m.configs = append(m.configs, repoConfig{
 			Alias:      m.selectedRepos[m.configIdx].Alias,
 			Branch:     branch,

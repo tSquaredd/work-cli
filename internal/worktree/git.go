@@ -212,6 +212,26 @@ func LocalBranches(dir string) []string {
 	return branches
 }
 
+// WorktreeBranches returns a set of branch names currently checked out in any
+// worktree of the repo at dir (including the main worktree).
+func WorktreeBranches(dir string) map[string]bool {
+	cmd := exec.Command("git", "-C", dir, "worktree", "list", "--porcelain")
+	out, err := cmd.Output()
+	if err != nil {
+		return nil
+	}
+	result := make(map[string]bool)
+	for _, line := range strings.Split(string(out), "\n") {
+		line = strings.TrimSpace(line)
+		if strings.HasPrefix(line, "branch ") {
+			b := strings.TrimPrefix(line, "branch ")
+			b = strings.TrimPrefix(b, "refs/heads/")
+			result[b] = true
+		}
+	}
+	return result
+}
+
 // CurrentBranch returns the current branch of a repo (not a worktree).
 func CurrentBranch(dir string) string {
 	cmd := exec.Command("git", "-C", dir, "branch", "--show-current")
