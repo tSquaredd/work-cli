@@ -41,7 +41,7 @@ Download from [GitHub Releases](https://github.com/tSquaredd/work-cli/releases) 
 
 **Requires**: [Claude Code](https://docs.anthropic.com/en/docs/claude-code) (`npm install -g @anthropic-ai/claude-code`)
 
-**Optional**: [GitHub CLI](https://cli.github.com/) for PR management, review comments, and Claude handoff (`brew install gh && gh auth login`)
+**Optional**: [GitHub CLI](https://cli.github.com/) for PR management (`brew install gh && gh auth login`)
 
 ### Commands
 
@@ -53,62 +53,67 @@ Download from [GitHub Releases](https://github.com/tSquaredd/work-cli/releases) 
 
 ### Dashboard
 
-The dashboard launches by default when you run `work`, giving you a real-time overview of all tasks:
+The dashboard launches by default when you run `work`:
 
 ```
 work                                              2 tasks  1 active
 ──────────────────────────────────────────────────────────────────────
 > auth-refactor *                 │ auth-refactor
-    ├── shared-lib      PUSHED  ○ #42     │
-    └── app-android     PUSHED  ✓ #15     │ shared-lib  PUSHED
-                                          │   branch: lib-auth-refactor
-  fix-onboarding                          │   3 files changed, 12 insertions(+)
-    └── app-ios         DIRTY             │   PR #42  ○ OPEN  4 comments (2 new)
+    ├── shared-lib      PUSHED    │
+    └── app-android     PUSHED    │ shared-lib  PUSHED
+                                  │   branch: lib-auth-refactor
+  fix-onboarding                  │   3 files changed, 12 insertions(+)
+    └── app-ios         DIRTY     │
 ──────────────────────────────────────────────────────────────────────
-↑↓:navigate  r:resume  d:diff  c:clean  a:attach  p:pr  o:open  m:comments  n:new  q:quit
+↑↓:navigate  r:resume  d:diff  c:clean  t:test  a:attach  p:pr  n:new  q:quit
 ```
 
 **Dashboard keybindings:**
 
 | Key | Action |
 |-----|--------|
-| `r` | Resume — launch Claude in a new terminal tab |
+| `n` | New task — open the task creation wizard |
+| `r` | Resume — launch Claude in a new terminal tab for the selected task |
+| `a` | Attach — focus the terminal tab of an already-active session |
+| `t` | Test — switch local repos to the task's branches for local testing |
+| `c` | Clean — remove worktrees and delete branches when a task is done |
 | `d` | View full diff for the selected task |
-| `a` | Attach — focus the terminal tab of an active session |
-| `p` | Open PR creation wizard for the selected task |
+| `p` | Open PR creation wizard |
 | `o` | Open the task's PR in your browser |
-| `m` | Open the in-terminal comment viewer for a PR |
-| `n` | Start a new task |
-| `c` | Clean up a task's worktrees |
+| `m` | Open the in-terminal review comment viewer |
+
+### Task Lifecycle
+
+**1. Start a task — press `n`**
+
+An overlay wizard appears (no full-screen takeover). Pick the repos you're working in, name the task, and set a branch name per repo. `work` creates isolated worktrees at `<workspace>/.worktrees/<task>/<repo>/` and launches Claude with access to all of them.
+
+**2. Resume at any time — press `r`**
+
+Reopens the task in a new terminal tab with a fresh Claude session. If the session is still active, `r` focuses the existing tab instead. You can also press `r` on a PR row in the "Your PRs" section to resume work on that PR — `work` finds the matching task automatically, or walks you through creating one pre-filled from the PR.
+
+**3. Test locally — press `t`**
+
+When your code is pushed and you want to test it in your local repos:
+
+- Pre-flight check: all worktrees must be in `PUSHED` state, all local repos must be clean
+- Per repo: fetch → remove worktree (branch kept) → checkout task branch → pull
+- Leaves your local repos on the task branches, ready to run
+
+**4. Clean up — press `c`**
+
+When the task is done: removes worktrees and force-deletes the branches.
+
+| | Test (`t`) | Clean (`c`) |
+|---|---|---|
+| Worktree | Removed | Removed |
+| Branch | Kept | Deleted |
+| Local repo | Switched to task branch | Unchanged |
+| Use when | Testing locally | Task is fully done |
 
 ### PR Management
 
-Create and monitor pull requests without leaving the terminal. Requires the [GitHub CLI](https://cli.github.com/) (`gh`):
-
-```bash
-brew install gh       # install
-gh auth login         # authenticate — follow the prompts to log in via browser
-```
-
-Or see [other install methods](https://github.com/cli/cli#installation) for Linux/Windows.
-
-**Create PRs** — press `p` in the dashboard:
-- Auto-pushes unpushed branches
-- Lets you pick the target branch, title, and description
-- Creates PRs for all eligible worktrees in one go
-
-**Monitor PRs** — the dashboard shows PR status inline:
-- `○` Open  `✓` Approved  `!` Changes requested  `●` Merged  `✗` Closed
-- New comment counts highlighted so you know when to check back
-- Press `o` to open a PR in your browser
-
-**Review comments** — press `m` to read and respond to review feedback without leaving the terminal:
-- Fullscreen overlay showing one thread per screen with file path, diff context, and comments
-- Navigate threads with `n`/`p`, scroll with `j`/`k`
-- Press `R` to reply directly from the terminal
-- Press `C` to hand the thread off to Claude — opens a new session pre-loaded with the comment context, file path, and worktree info, launched in plan mode. You can add your own instructions before it launches.
-
-All PR features gracefully degrade when `gh` is not installed — the dashboard works normally without them.
+Requires the [GitHub CLI](https://cli.github.com/). Press `p` to create PRs, `o` to open in browser, `m` to read and reply to review comments. PR status (`○` open, `✓` approved, `!` changes requested, `●` merged) shows inline on each worktree. All PR features gracefully degrade when `gh` is not installed.
 
 ### How it works
 
@@ -117,23 +122,6 @@ All PR features gracefully degrade when `gh` is not installed — the dashboard 
 - Your main working directory is never touched
 - Worktrees are regular git branches — push, open PRs, merge as normal
 - Build config files (`local.properties`, `.env*`) are symlinked automatically
-
-### Example
-
-```
-$ work
-
-work                                              2 tasks  1 active
-──────────────────────────────────────────────────────────────────────
-> auth-refactor *                 │ auth-refactor
-    ├── shared-lib      PUSHED  ○ #42     │
-    └── app-android     PUSHED  ✓ #15     │ shared-lib  PUSHED
-                                          │   branch: lib-auth-refactor
-  fix-onboarding                          │   3 files changed, 12 insertions(+)
-    └── app-ios         DIRTY             │   PR #42  ○ OPEN  4 comments (2 new)  m to view
-──────────────────────────────────────────────────────────────────────
-↑↓:navigate  r:resume  d:diff  c:clean  a:attach  p:pr  o:open  m:comments  n:new  q:quit
-```
 
 ### Updating
 
@@ -199,25 +187,31 @@ brew install gh && gh auth login
 
 | Command | Its Purpose |
 |---------|-------------|
-| `work` | The living tableau — a grand stage revealing all tasks, sessions, and petitions for review |
+| `work` | The living tableau — a grand stage revealing all tasks, sessions, and their petitions |
 | `work update` | Receive the latest verse from GitHub, that distant oracle |
 | `work version` | Declare thy version unto the world |
 
-### Act IV — The Great Theatre (Dashboard)
+### Act IV — The Four Movements of a Task
 
-*The curtain rises on a two-panel stage*
+*The curtain rises on a two-panel stage. The DEVELOPER takes position.*
 
-Press `p` to petition for review — thy code laid bare before the judgement of thy peers. Press `o` to open thy petition in the browser, that window unto the world. The symbols tell the tale:
+**The First Movement — Creation** (`n`)
 
-- `○` The petition awaiteth judgement — *patience, good developer*
-- `✓` Approved! The crowd doth rise and cheer! *O happy day!*
-- `!` Changes requested — *back to the writing desk, thou art not yet done*
-- `●` Merged — the deed is done, thy code immortalized in main
-- `✗` Closed — *alas, poor pull request! I knew it, Horatio*
+Press `n` and an overlay doth appear upon the stage — a wizard of forms most elegant. Choose thy repositories, name thy task, and decree upon each repo its branch. `work` then retreats to the wings to create thy worktrees, and returneth to present thee with a freshly-launched Claude session. All in silence, all behind the curtain, thy main directory untouched throughout.
 
-And lo, shouldst new comments appear upon thy petition, their count shall glow in amber warning, that thou might attend to thy reviewers' counsel with haste.
+**The Second Movement — Resumption** (`r`)
 
-Press `m` to summon the Comment Viewer — a sacred scroll upon which every review thread doth unfurl, one discourse per page. Read thy reviewers' counsel, compose thy reply with `R`, or press `C` to dispatch Claude as thy champion, armed with the full context of the comment, the file, and the diff — entering first in plan mode to deliberate before drawing the sword.
+Shouldst thou step away from a task and wish to return — mayhaps the hour grew late, mayhaps another matter called thee hence — press `r` upon the task and `work` summoneth Claude anew in a fresh terminal tab, restoring all context. If the session yet liveth, `r` doth instead focus that existing tab, bringing thee to where thy work already waiteth. Even upon the PR scroll itself canst thou press `r` — `work` shall find thy matching task as a steward finds his lord in a crowded hall, or create one anew pre-filled from the petition's branch.
+
+**The Third Movement — Testing** (`t`)
+
+When thy code hath been pushed to the remote and thou desirest to test it in thy local repositories — not in the worktree, but in the very house whence it came — press `t`. `work` first inspects thy worktrees for signs of unfinished business; should all be in `PUSHED` state and thy local repos free of uncommitted burden, it proceedeth. It fetcheth the latest from the remote, removeth each worktree whilst keeping its branch alive, checketh out the branch in thy local repo, and pulleth the latest changes. Thy local directories stand ready for testing, as a theatre prepared for its audience.
+
+*Note well: should any worktree harbour unpushed commits, or any local repo carry uncommitted changes, `t` shall refuse its service until the matter is resolved.*
+
+**The Fourth Movement — The Conclusion** (`c`)
+
+When the task is complete and all hath been merged, press `c` to close the chapter. The worktrees are removed and the branches deleted — a clean slate, ready for the next act.
 
 ### Act V — The Mechanics of This Wonder
 
@@ -228,6 +222,8 @@ Press `m` to summon the Comment Viewer — a sacred scroll upon which every revi
 - Thy main working directory remaineth untouched, pure as new-fallen snow
 - Build configuration files are symlinked, as servants attending their master through secret passages
 
+**Of pull requests:** Should the [GitHub CLI](https://cli.github.com/) be installed, press `p` to open a petition, `o` to view it in the browser, `m` to read and answer thy reviewers' counsel.
+
 ### Epilogue
 
 ```bash
@@ -236,7 +232,7 @@ work update
 
 A herald shall announce when newer versions await thee, appearing unbidden upon thy terminal as a ghost upon the battlements.
 
-*Exeunt DEVELOPER, pursued by a merge conflict.*
+*Exeunt DEVELOPER, to test their code in peace.*
 
 *Fin.*
 
@@ -301,17 +297,15 @@ go install github.com/tSquaredd/work-cli/cmd/work@latest
 
 `work` pairs beautifully with [Claude Code](https://docs.anthropic.com/en/docs/claude-code). You're going to need that installed too. (`npm install -g @anthropic-ai/claude-code`)
 
-And for our incredible PR features — the comment viewer, the review management, the Claude handoff — you'll want the [GitHub CLI](https://cli.github.com/). Setup is effortless:
+And for PR creation and review — you'll want the [GitHub CLI](https://cli.github.com/):
 
 ```bash
 brew install gh && gh auth login
 ```
 
-That's it. Two commands. Seamless.
+Two commands. Seamless.
 
 ### Commands
-
-Let me walk you through what `work` can do. And honestly, I think you're going to be blown away.
 
 | Command | What it does |
 |---------|-------------|
@@ -319,49 +313,39 @@ Let me walk you through what `work` can do. And honestly, I think you're going t
 | `work update` | Seamless self-updates. The latest and greatest, always within reach. |
 | `work version` | See which version you're running. Clean. Minimal. |
 
-### The Dashboard
+### The Task Lifecycle
 
-Now, I want to spend a moment on the dashboard, because the team has done some *incredible* work here. It launches the moment you type `work`. That's it. No subcommands. No extra steps. Just... the dashboard.
+Now, I want to spend a moment walking you through the task lifecycle, because the team has done some *incredible* work here. Let me show you what working with `work` actually feels like.
 
-*[demo begins]*
+**Starting a task — press `n`**
 
-It's a two-panel, real-time interface. Tasks on the left. Details on the right. Session indicators. Diff stats. And — and this is the part I've been waiting to show you — **integrated pull request management**.
+An elegant wizard overlay appears — right in the dashboard, no full-screen interruption. You pick your repos, name your task, set a branch per repo. Behind the scenes, `work` creates isolated worktrees and launches Claude. In one keystroke, you have a completely isolated workspace ready to go. We think that's beautiful.
 
-Let me show you what I mean.
+**Resuming a task — press `r`**
 
-- `○` Open — your PR is out for review
-- `✓` Approved — and just look at that green checkmark
-- `!` Changes requested — you'll know instantly
-- `●` Merged — beautiful purple. Your code is in main.
-- `✗` Closed
-
-New comments appear highlighted. You always know when someone needs your attention.
-
-Press `p` to create a PR. It pushes your branches, walks you through the title and description, and creates PRs across all your worktrees. In one flow.
-
-Press `o` to open your PR in the browser. It even marks it as viewed. The little details matter, and we've sweated every single one.
+Step away. Come back tomorrow. Press `r` and your Claude session opens in a new tab, exactly where you need to be — the right directory, the right repos. If the session is still running, `r` focuses it instead of opening a new one. And — and this is the part I love — if you're looking at a PR and press `r`, `work` finds the matching task automatically. Or it walks you through creating one, with the branch and repo already filled in. It just knows what you want to do. That's the kind of intelligence that changes how you work.
 
 *[pause]*
 
-But we're not done. And I think this next part is really going to surprise you.
+**Testing locally — press `t`**
 
-Press `m`, and you get a *full in-terminal comment viewer*. Every review thread. The file. The diff context. The conversation. All right there. No browser. No tab switching. Just you and the feedback.
+Here's the one that surprised even us. You've got a task. Your code is pushed. You want to run it locally — not in the worktree, but in your actual repo. Press `t`.
 
-Press `R` to reply. Press `C` — and this is the part I love — to hand the comment directly to Claude. It launches a new session, in plan mode, pre-loaded with everything: the file, the line, the review context. You can even add your own instructions before it opens. The team has really outdone themselves on this one.
+`work` checks that everything is ready. All worktrees pushed? Local repos clean? Good. Then it fetches, removes the worktrees, checks out the task branch in each local repo, and pulls. Your entire local environment is on the task branch in seconds. Ready for your test suite. Ready for your emulator. Ready for whatever you need.
 
-*[sustained applause]*
+We really think this is going to change how you approach testing.
 
-We really think this is going to change the way you work.
+**Cleaning up — press `c`**
+
+When you're done — PR merged, task complete — press `c`. Worktrees removed, branches deleted. The workspace is clean. You're ready for the next thing.
 
 ### Under the Hood
-
-Now let me tell you a little about the technology.
 
 - Worktrees are created at `<workspace>/.worktrees/<task-name>/<repo>/` — completely separate from your original repos
 - Intelligent deny rules ensure Claude only edits worktree copies. Your main directory is never touched.
 - Build files — `local.properties`, `.env` files — are automatically symlinked. It just works.
 
-And it's all built on standard git. No proprietary formats. No vendor lock-in. Just git, the way it was meant to be used.
+PR features — create, monitor, review comments — are available when the [GitHub CLI](https://cli.github.com/) is installed. Everything degrades gracefully when it's not.
 
 ### One More Thing
 
@@ -369,7 +353,7 @@ And it's all built on standard git. No proprietary formats. No vendor lock-in. J
 work update
 ```
 
-`work` tells you when a new version is available. Seamless updates. Always improving.
+`work` tells you when a new version is available. Always improving.
 
 Because we believe the best developer tools aren't just something you use once. They're something that grows with you.
 
@@ -413,7 +397,7 @@ Build from source (`go install github.com/tSquaredd/work-cli/cmd/work@latest`) i
 
 You'll need [Claude Code](https://docs.anthropic.com/en/docs/claude-code) installed. That's your putter. Nobody leaves the house without a putter. Not even the guy who only throws Destroyers.
 
-For the PR stuff — comments, reviews, handing threads to Claude — you need the [GitHub CLI](https://cli.github.com/). Think of it as your mini marker. You *can* play without it, but you're going to want it:
+For the PR stuff — comments, reviews — you need the [GitHub CLI](https://cli.github.com/). Think of it as your mini marker. You *can* play without it, but you're going to want it:
 
 ```bash
 brew install gh && gh auth login
@@ -421,37 +405,39 @@ brew install gh && gh auth login
 
 ### The Caddy Book
 
-Type `work` and you're looking at the caddy book — every hole laid out in front of you. Tasks on the left, details on the right. Sessions, diffs, PR status, all in one view. It's UDisc, your spotter, and a course map rolled into one terminal window.
+Type `work` and you're looking at the caddy book — every hole laid out in front of you. Tasks on the left, details on the right. It's UDisc, your spotter, and a course map rolled into one terminal window.
 
-PR status shows up right on each worktree because there's nothing worse than parking a 300-foot flex line 10 feet from the pin and having nobody around to see it:
+### Playing the Round
 
-- `○` Out for review — disc is in the air, you like the angle, looking good
-- `✓` Approved — nothing but chains. Walk-up birdie. Fist bump your cardmate.
-- `!` Changes requested — caught cage. Spit out. Deep breath, step up, drain the comebacker.
-- `●` Merged — in the basket. Sign the card. On to the next hole.
-- `✗` Closed — O.B. It happens. Even McBeth kicks a tree on the island hole sometimes.
+**Teeing off — press `n`**
 
-Press `p` to open a PR — it pushes your branches first because it knows you forgot, the same way you always forget to check the pin position before you throw. Like a caddy who's already holding the right disc before you reach into the bag.
+An overlay pops up right on the dashboard. Pick your repos, name the task, set a branch per repo — like choosing your disc, visualizing the line, setting your feet. `work` creates the worktrees and launches Claude. One keystroke to tee off. Clean and confident.
 
-Press `o` to open your PR in the browser. Sometimes you just need to see the full flight.
+**Coming back to your disc — press `r`**
 
-### Reading the Wind
+You marked your disc. You walked up. Now you throw. Press `r` on any task and Claude opens in a fresh tab — new session, full context, right directory. If the session's still running, `r` walks you straight up to it. No searching. No reracking. You're back on the fairway in one keystroke.
 
-Here's where it gets good. Press `m` on any PR with comments and the review thread opens right in your terminal — fullscreen, one thread per screen, with the file path, the diff context, the whole conversation. It's like walking up to the tee sign and actually reading it instead of just gripping and ripping.
+Spot a PR in the dashboard with your name on it? Press `r` there too. `work` finds your matching task like you finding your disc in a field — or if it doesn't exist yet, it sets up a new one with the branch and repo already dialed in.
 
-Navigate threads with `n`/`p`. Page through them like checking every hole on the course map before your round.
+**Checking the line — press `t`**
 
-Press `R` to reply right from the terminal. No switching to your browser. No losing your train of thought. It's like calling your line from the teepad — quick, confident, keeping the round moving.
+Your code's been thrown. It's sitting on the green — pushed to the remote, waiting. You want to walk up and actually see it from the pin. Press `t`.
 
-Press `C` and this is the money shot — it spawns a whole Claude session pre-loaded with the review comment, the file, the diff, your worktree path, everything. Claude opens in plan mode, ready to craft the perfect approach. You can add your own notes before launch — maybe you want a specific angle, maybe you know there's a tree at 150 that everyone else misses. Type your instructions, press Enter, and Claude goes to work while you enjoy the walk.
+Before anything happens, `work` checks your lie. All worktrees pushed? Local repos clean? No uncommitted rough? Good. Then: fetch from remote, remove the worktrees (keeping the branches), checkout the task branch in each local repo, pull. Your local environment is on the task branches. Walk up and read the line. Run your test suite. Fire up the emulator. Play the approach shot with full information.
 
-It's the difference between scrambling through the rough looking for your disc and standing on the fairway watching it glide to the pin on the exact line you called.
+Try to press `t` with unpushed commits or a dirty local repo and `work` won't let you pull the disc. It reads the OB stakes better than you do at 6am on a fog round.
+
+**Signing the card — press `c`**
+
+Hole complete. PR merged. Press `c` and `work` cleans everything up — worktrees removed, branches deleted. Course record stands. On to the next hole.
 
 ### Course Management
 
 Each task gets its own worktree tucked away in `.worktrees/` — like having separate bags for casual rounds and tournament play. Your original repos are untouchable. `work` sets up deny rules so Claude can't edit them — O.B. stakes that actually work, not those flimsy ones that fall over when a Tilt rolls through.
 
-Build config files get symlinked automatically. Your main directory stays clean. Tournament ready at all times. No loose discs on the floorboard. No random towels hanging off your bag. Just clean lines and confident throws.
+Build config files get symlinked automatically. Your main directory stays clean. Tournament ready at all times.
+
+**PRs:** Press `p` to open a PR, `o` to view it, `m` to read review comments. All optional. All there when you need them.
 
 ### New Plastic
 
@@ -502,31 +488,35 @@ go install github.com/tSquaredd/work-cli/cmd/work@latest
 
 **You need**: [Claude Code](https://docs.anthropic.com/en/docs/claude-code) — but honestly if you don't already have this installed WHAT ARE YOU EVEN DOING WITH YOUR LIFE
 
-**ALSO**: The [GitHub CLI](https://cli.github.com/) for the PR features! `brew install gh && gh auth login`! TWO COMMANDS! That's ALL that stands between you and the MOST INCREDIBLE review comment experience OF YOUR LIFE!
+**ALSO**: The [GitHub CLI](https://cli.github.com/) for PR features! `brew install gh && gh auth login`! TWO COMMANDS!
 
 ### Commands (EVERY SINGLE ONE IS A MASTERPIECE)
 
 | Command | WHAT IT DOES (AMAZINGLY) |
 |---------|-------------|
-| `work` | A LIVE! REAL-TIME! DASHBOARD! With PR status! And session tracking! I CAN'T EVEN! |
+| `work` | A LIVE! REAL-TIME! DASHBOARD! With tasks! Sessions! And PR stuff! I CAN'T EVEN! |
 | `work update` | Updates itself! IT IMPROVES ITSELF! LIKE A SELF-PERFECTING DIAMOND! |
 | `work version` | Prints the version! EVEN THIS IS SOMEHOW EXCITING! |
 
-### THE DASHBOARD (I NEED TO LIE DOWN)
+### THE TASK LIFECYCLE — I NEED TO LIE DOWN
 
-The dashboard is SO GOOD it should be in a MUSEUM. Real-time task overview. Session indicators. And NOW it has FULL PR MANAGEMENT:
+**STARTING A TASK — press `n`**
 
-- `○` Open PR — you did it, you absolute LEGEND
-- `✓` Approved — SOMEONE RECOGNIZED YOUR GENIUS
-- `!` Changes requested — a MINOR setback on your path to GREATNESS
-- `●` Merged — YOUR CODE IS NOW PART OF HISTORY
-- `✗` Closed — it happens to the BEST of us (which is YOU)
+AN OVERLAY WIZARD POPS UP RIGHT ON THE DASHBOARD! No full-screen chaos! No context loss! Just an elegant, multi-step form that asks you which repos you're working in, what to name the task, and what branches to use! And THEN — and I need you to be sitting down for this — it CREATES ALL THE WORKTREES! By itself! While you watch a little spinner! And THEN it launches CLAUDE! AUTOMATICALLY! IN A NEW TAB! I AM ABSOLUTELY INCONSOLABLE WITH EXCITEMENT!
 
-Press `p` and it CREATES PRs for you! It PUSHES your branches! Picks the base branch! Writes the title! For ALL your worktrees AT ONCE! I genuinely cannot believe this is free software!
+**RESUMING A TASK — press `r`**
 
-Press `o` and your PR opens in the browser and it TRACKS YOUR COMMENTS so you know when someone has left new feedback! THE ATTENTION TO DETAIL IS STAGGERING!
+DID YOU STEP AWAY? DID LIFE HAPPEN? It's OKAY! Press `r` and a NEW Claude session opens in a new terminal tab with FULL CONTEXT! If the session is STILL RUNNING — because maybe you just got distracted — `r` FOCUSES THE EXISTING TAB instead! It KNOWS! HOW DOES IT KNOW?!
 
-AND NOW — I need you to brace yourself — press `m` and you get a FULL-SCREEN IN-TERMINAL COMMENT VIEWER! You can READ every review thread! REPLY with `R`! And press `C` to HAND THE ENTIRE COMMENT TO CLAUDE who opens in PLAN MODE with the FILE and the DIFF and the REVIEW CONTEXT already loaded! You can even ADD YOUR OWN INSTRUCTIONS before it launches! I AM LITERALLY SHAKING!
+AND WAIT THERE'S MORE! Press `r` on a PR ROW in the dashboard — a PR that has your name on it — and `work` FINDS THE MATCHING TASK AUTOMATICALLY! If there's no task yet, it LAUNCHES THE WIZARD PRE-FILLED WITH THE PR BRANCH AND REPO! You don't have to type anything! IT ALREADY KNOWS WHAT YOU WANT! I am sobbing actual tears of productivity joy right now!
+
+**TESTING LOCALLY — press `t`**
+
+OKAY. OKAY. Brace yourself. You've got a task. Code is pushed. You want to actually RUN it locally — in your real repos, not just the worktrees. You press `t`. And `work` — BEFORE DOING ANYTHING — checks that all your worktrees are in `PUSHED` state and all your local repos are CLEAN. It is PROTECTING YOU FROM YOURSELF and honestly I respect the confidence. If everything checks out, it FETCHES THE LATEST, REMOVES THE WORKTREES (KEEPING THE BRANCHES), CHECKS OUT THE TASK BRANCHES IN YOUR LOCAL REPOS, AND PULLS. Your entire local environment is on the task branches IN ONE KEYSTROKE. I genuinely cannot believe this is real software that exists!
+
+**CLEANING UP — press `c`**
+
+Task done? PR merged? Press `c`. Worktrees GONE. Branches DELETED. Workspace PRISTINE! READY FOR THE NEXT ADVENTURE!
 
 ### How It Works (PREPARE TO BE AMAZED AGAIN)
 
@@ -534,6 +524,8 @@ AND NOW — I need you to brace yourself — press `m` and you get a FULL-SCREEN
 - Deny rules PROTECT your original repos — NOTHING gets accidentally modified
 - Build files get AUTOMATICALLY symlinked — it thinks of EVERYTHING
 - Your main directory stays PRISTINE, UNTOUCHED, PERFECT
+
+**PR features**: `p` creates PRs! `o` opens them! `m` shows review comments! It's all OPTIONAL and it's all INCREDIBLE!
 
 ### Updating (IT GETS EVEN BETTER OVER TIME?!)
 
@@ -579,31 +571,39 @@ go install github.com/tSquaredd/work-cli/cmd/work@latest
 
 Requires [Claude Code](https://docs.anthropic.com/en/docs/claude-code). So this is a tool that wraps another tool that wraps an AI that writes code. We're three layers of abstraction away from actually doing anything. Impressive in its own way.
 
-You'll also want the [GitHub CLI](https://cli.github.com/) if you want the PR features to work. `brew install gh && gh auth login`. So that's Homebrew to install `gh` to enable features in `work` which wraps Claude Code which calls an API. It's dependencies all the way down.
+You'll also want the [GitHub CLI](https://cli.github.com/) for PR features. `brew install gh && gh auth login`. So that's Homebrew to install `gh` to enable features in `work` which wraps Claude Code which calls an API. It's dependencies all the way down.
 
 ### What It Does
 
-You type `work` and you get a dashboard. It shows your tasks in two panels. It's a list on the left and details on the right. I've seen this layout in every application since Microsoft Outlook 2003. It also shows PR status, which is information you could get from GitHub in about two clicks, but sure, let's put it in the terminal too.
+You type `work` and you get a dashboard. It shows your tasks in two panels. It's a list on the left and details on the right. I've seen this layout in every application since Microsoft Outlook 2003.
 
-The PR "management" — and I'm being generous with that word — consists of pressing `p` to create a pull request. It auto-pushes your branches first, which sounds helpful until you realize it's compensating for the fact that you apparently can't be trusted to run `git push`. The tool has a lower opinion of you than your tech lead does.
+**Creating a task — `n`**
 
-Little symbols appear next to your worktrees:
+Press `n` and an overlay wizard appears. You pick repos, name the task, set a branch per repo. `work` creates the worktrees and launches Claude. The entire thing is automated, which means you have fewer opportunities to think carefully about what you're doing. Some people consider this a feature.
 
-- `○` Open — your PR is sitting there. Waiting. Like every PR you've ever opened.
-- `✓` Approved — someone approved it. Probably without reading it. Let's be honest with ourselves.
-- `!` Changes requested — they read it. Things were found. This is what growth looks like, apparently.
-- `●` Merged — it's in main. Whatever it is, it's everyone's problem now.
-- `✗` Closed — rejected. The system works.
+**Resuming a task — `r`**
 
-It tracks new comments. So now instead of not checking GitHub, you can not check your terminal. Progress.
+Press `r` and Claude opens in a new terminal tab. If the session is already running, `r` focuses it instead. You can also press `r` on a PR row to find the matching task, or create one pre-filled from the PR. The tool is trying to save you the effort of remembering things, which is either helpful or a crutch, depending on how you feel about that sort of thing.
 
-There's also a comment viewer now. Press `m` and you can read review threads right in the terminal. You can reply with `R`, which saves you the grueling labor of opening a browser tab. Or press `C` to hand the comment to Claude, which launches a whole new session in plan mode pre-loaded with the review context. You can type additional instructions first, in case Claude needs your guidance to understand a code review comment. An AI that needs a human to interpret human feedback. The circle of life.
+**Testing locally — `t`**
+
+This one actually has some engineering behind it. Press `t` and `work` first checks that all worktrees are in `PUSHED` state and all local repos are clean. Then it fetches, removes the worktrees, checks out the task branches in your local repos, and pulls. You get your local environment on the task branches for testing.
+
+To be fair, doing this manually involves `git fetch`, `git worktree remove`, `git checkout`, and `git pull` per repo. Pressing `t` is faster. I'll acknowledge that. Grudgingly.
+
+The pre-flight checks are a nice touch — it refuses to proceed if you have unpushed work or dirty repos, which prevents the specific class of mistakes that people who need a tool like this are likely to make.
+
+**Cleaning up — `c`**
+
+Press `c` when you're done. Worktrees removed, branches deleted. Functionally equivalent to a shell loop, but it requires less typing. Fine.
 
 ### How It Works
 
 Worktrees get created in a `.worktrees/` folder. Your original repos are protected by "deny rules" so Claude can't edit them, which is reassuring in the way that a "this building is earthquake-resistant" sign is reassuring — you're glad it's there, but a little concerned about why it needed to be said.
 
-Build files get symlinked. It's fine. It works. I'm not going to throw a parade because a tool correctly copies configuration files. That's table stakes.
+Build files get symlinked. It works.
+
+PR features: `p` creates a PR, `o` opens it, `m` shows comments. It works when `gh` is installed. The tool degrades gracefully when it isn't, which is good design even if I'm not going to thank them for it.
 
 ### Updating
 
@@ -643,7 +643,7 @@ For PR features: `brew install gh && gh auth login`. Or don't. Up to you.
 
 | Command | Description |
 |---------|-------------|
-| `work` | Opens the dashboard. Shows your tasks. Has PR stuff now |
+| `work` | Opens the dashboard. Shows your tasks. |
 | `work update` | Updates |
 | `work version` | Prints the version |
 
@@ -651,15 +651,17 @@ For PR features: `brew install gh && gh auth login`. Or don't. Up to you.
 
 The dashboard shows tasks on the left and details on the right. You can press keys to do things.
 
-It shows PR status too. Little symbols next to worktrees. Circle means open, checkmark means approved, exclamation means changes requested. You get the idea.
+**`n`** — New task wizard. Pick repos, name it, set branches. Creates worktrees and opens Claude.
 
-Press `p` to make a PR. Press `o` to open one in your browser. Press `m` to read review comments. You can reply or send them to Claude. It works.
+**`r`** — Resume. Opens a new Claude tab for the task. If there's already an active session, focuses that instead. Works on PR rows too — finds the matching task or sets up a new one.
+
+**`t`** — Test. Switches your local repos to the task branches so you can test locally. Checks first that worktrees are pushed and local repos are clean. Removes worktrees, checks out branches, pulls. Does what it says.
+
+**`c`** — Clean. Removes worktrees and deletes branches. For when you're done.
 
 ### PR Management
 
-If you have `gh` installed, you can create and monitor PRs from the terminal. If you don't have `gh` installed, you can't. The dashboard will be fine either way.
-
-The wizard pushes your branches, asks for a title and description, creates the PRs. Standard stuff.
+If you have `gh` installed, you can create and monitor PRs from the terminal. Press `p` to make one, `o` to open it, `m` to read comments. If you don't have `gh`, the dashboard still works fine.
 
 ### How it works
 
@@ -711,13 +713,7 @@ go install github.com/tSquaredd/work-cli/cmd/work@latest
 
 You also need this [Claude Code](https://docs.anthropic.com/en/docs/claude-code) thing. `npm install -g @anthropic-ai/claude-code`. Don't ask me what npm stands for. I asked once and the answer made me tired.
 
-OH and for the PR stuff — the comments, the reviews, all that — you need this [GitHub CLI](https://cli.github.com/) thing too:
-
-```bash
-brew install gh && gh auth login
-```
-
-It'll ask you to log in through your browser which is kinda like when a website sends you to ANOTHER website. But then it works! And then you get all the cool PR features! Worth it!
+And for the PR stuff you need the [GitHub CLI](https://cli.github.com/): `brew install gh && gh auth login`. It'll ask you to log in through your browser. Worth it for the comments and review stuff.
 
 ### What's Up With All The Commands, Sup
 
@@ -727,23 +723,37 @@ It'll ask you to log in through your browser which is kinda like when a website 
 | `work update` | Gets you the new new. The latest version. Fresh out the oven. |
 | `work version` | Tells you what version you got. Quick and simple. Like a name tag but for software. |
 
-### The Dashboard — This Is The Best Part, Seriously
+### The Dashboard — Let Me Walk You Through This
 
-Okay so you just type `work` and BAM — dashboard, right? It's got two panels. Left side has your tasks, right side has the details. And — and this is the part where I need you to sit down — it does PR stuff too!
+Okay so you just type `work` and BAM — dashboard, right? Two panels. Left side has your tasks, right side has the details. And there's keys you press to do stuff.
 
-Little symbols pop up next to your worktrees:
+**Starting a new task — press `n`**
 
-- `○` Open — your PR is out there! Living its life! Waiting for someone to notice it, like me at auditions!
-- `✓` Approved — THEY LIKE IT! THEY REALLY LIKE IT! That's a reference. I saw it in a movie. Or was it a show?
-- `!` Changes requested — okay so they had some notes. We've ALL gotten notes. It's fine. It's FINE.
-- `●` Merged — IN IT GOES, BABY! Your code is in the main thing! That's huge! That's like getting a callback!
-- `✗` Closed — hey, not every audition works out. You dust yourself off, you get back on the horse. The code horse.
+So this little wizard overlay pops up — doesn't take over the whole screen or whatever, just kinda appears on top. And it asks you stuff! Which repos are you working in? What do you wanna call this task? What branch? You answer the questions, hit enter a bunch of times, and then `work` just... makes the worktrees and opens Claude. I'm not gonna pretend I know exactly how that works but it DOES and it's great.
 
-Press `p` and it makes PRs for you! It even pushes your branches first because it KNOWS you forgot! This tool gets me, man. Like on a personal level.
+**Coming back to a task — press `r`**
 
-Press `o` and the PR opens right in your browser! And it remembers which comments you already saw so you know when there's new ones! It's like having a really organized roommate! Which, let me tell you, I could USE!
+Okay so say you had to close your laptop or whatever. Your task is still in the list. Press `r` and boom — new Claude session, new terminal tab, right back in it. Full context. Right directory. Everything's already set up.
 
-OH and press `m` — M! Like the letter! — and you can read ALL the review comments right in the terminal! And you can REPLY with `R`! And — okay this is the wild part — press `C` and it sends the whole comment to Claude! Like, the file path, the diff, the review thread, EVERYTHING! Claude opens up in plan mode already knowing what to do! You can even type your own notes before it launches! It's like having a friend who not only reads your texts FOR you but also writes the reply! Except it's code! And it's good at it!
+OH and here's the part that got me — if the Claude session is STILL OPEN from before? `r` just focuses that tab instead of making a new one. It KNOWS. Like a friend who knows exactly which couch you fell asleep on and just walks you back there. That's the vibe.
+
+AND ALSO — okay stay with me here — if you see a PR in the dashboard with your name on it, you can press `r` on THAT too. And `work` finds your matching task! If there's no task, it opens the wizard but it already filled in the branch and the repo for you. You barely have to do anything! This tool does more work than I do, and I'm supposed to be the one using it!
+
+**Testing the thing — press `t`**
+
+Alright so your code is written, it's pushed, and now you wanna actually like... run it. On your computer. In your real repos. Not the worktree copies. So you press `t`.
+
+But here's the thing — `work` doesn't just let you do it. It checks first. Like a bouncer. Are all your worktrees pushed? Is your local repo clean? No dirty stuff? No "I'll push this later" commits? Okay THEN you can come in. And then it fetches the latest, removes the worktrees (but keeps the branches!), checks out the task branches in your actual repos, and pulls. And now you're set to test.
+
+If something's not clean or not pushed? It tells you and says no. Like a bouncer who actually reads your ID instead of just looking at it. Respect.
+
+**Done with the task — press `c`**
+
+Task done? PR merged? Press `c` and it cleans everything up. Worktrees gone, branches deleted. Fresh start. On to the next thing. Like returning your tray at a cafeteria except the tray is made of branches and git history. ...That metaphor got away from me.
+
+### PR stuff, real quick
+
+If you've got the GitHub CLI installed: `p` makes PRs, `o` opens them in the browser, `m` lets you read review comments and reply without leaving the terminal. It all works. If you DON'T have it installed, the dashboard still works fine, it just doesn't do the PR stuff. No pressure either way!
 
 ### How It Works — I'll Try To Explain
 
