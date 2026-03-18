@@ -223,7 +223,7 @@ func (m *newTaskModel) initConfigRepo() tea.Cmd {
 		m.form = huh.NewForm(
 			huh.NewGroup(
 				huh.NewSelect[string]().
-					Title(fmt.Sprintf("%s — Switch to branch", repo.Alias)).
+					Title(fmt.Sprintf("Select branch for %s", repo.Alias)).
 					Description(fmt.Sprintf("%s is checked out. Pick a branch to switch %s to so the worktree can be created.", m.resumePR.HeadBranch, repo.Alias)).
 					Options(opts...).
 					Value(&m.curBranch).
@@ -251,7 +251,7 @@ func (m *newTaskModel) initConfigRepo() tea.Cmd {
 		m.form = huh.NewForm(
 			huh.NewGroup(
 				huh.NewSelect[string]().
-					Title(fmt.Sprintf("%s — Switch to branch", repo.Alias)).
+					Title(fmt.Sprintf("Select branch for %s", repo.Alias)).
 					Description(fmt.Sprintf("%s is checked out. Pick a branch to switch %s to so the worktree can be created.", m.pendingBranch, repo.Alias)).
 					Options(opts...).
 					Value(&m.curBranch).
@@ -287,7 +287,7 @@ func (m *newTaskModel) initConfigRepo() tea.Cmd {
 			m.form = huh.NewForm(
 				huh.NewGroup(
 					huh.NewSelect[string]().
-						Title(fmt.Sprintf("%s — Branch", repo.Alias)).
+						Title(fmt.Sprintf("Select branch for %s", repo.Alias)).
 						Description("Select existing branch to include in this task").
 						Options(opts...).
 						Value(&m.curBranch).
