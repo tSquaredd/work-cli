@@ -202,12 +202,16 @@ func (m *newTaskModel) initConfigRepo() tea.Cmd {
 	}
 
 	repo := m.selectedRepos[m.configIdx]
+	// Fetch remote refs so AllBranches can include remote-only branches.
+	if m.resumePR != nil || m.needsSwitchForPR || m.needsSwitchForRepo {
+		worktree.FetchAll(repo.Path)
+	}
 
 	// Fix 2: show "switch to branch" form for PR repo when branch is checked out.
 	if m.needsSwitchForPR {
-		localBranches := worktree.LocalBranches(repo.Path)
+		allBranches := worktree.AllBranches(repo.Path)
 		var opts []huh.Option[string]
-		for _, b := range localBranches {
+		for _, b := range allBranches {
 			if b != m.resumePR.HeadBranch {
 				opts = append(opts, huh.NewOption(b, b))
 			}
@@ -223,6 +227,7 @@ func (m *newTaskModel) initConfigRepo() tea.Cmd {
 					Description(fmt.Sprintf("%s is checked out. Pick a branch to switch %s to so the worktree can be created.", m.resumePR.HeadBranch, repo.Alias)).
 					Options(opts...).
 					Value(&m.curBranch).
+					Filtering(true).
 					Height(10),
 			),
 		).WithTheme(ui.HuhTheme()).WithWidth(m.formWidth()).WithShowHelp(true)
@@ -231,10 +236,10 @@ func (m *newTaskModel) initConfigRepo() tea.Cmd {
 
 	// needsSwitchForRepo: show "switch to branch" form for non-PR repo when selected branch is checked out.
 	if m.needsSwitchForRepo {
-		localBranches := worktree.LocalBranches(repo.Path)
+		allBranches := worktree.AllBranches(repo.Path)
 		worktreeBranches := worktree.WorktreeBranches(repo.Path)
 		var opts []huh.Option[string]
-		for _, b := range localBranches {
+		for _, b := range allBranches {
 			if b != m.pendingBranch && !worktreeBranches[b] {
 				opts = append(opts, huh.NewOption(b, b))
 			}
@@ -250,6 +255,7 @@ func (m *newTaskModel) initConfigRepo() tea.Cmd {
 					Description(fmt.Sprintf("%s is checked out. Pick a branch to switch %s to so the worktree can be created.", m.pendingBranch, repo.Alias)).
 					Options(opts...).
 					Value(&m.curBranch).
+					Filtering(true).
 					Height(10),
 			),
 		).WithTheme(ui.HuhTheme()).WithWidth(m.formWidth()).WithShowHelp(true)
@@ -258,14 +264,14 @@ func (m *newTaskModel) initConfigRepo() tea.Cmd {
 
 	// Fix 1: for non-PR repos in resume mode, show a local branch selector.
 	if m.resumePR != nil {
-		localBranches := worktree.LocalBranches(repo.Path)
+		allBranches := worktree.AllBranches(repo.Path)
 		currentBranch := worktree.CurrentBranch(repo.Path)
 		worktreeBranches := worktree.WorktreeBranches(repo.Path)
 		m.curBranch = currentBranch
 		m.curBaseBranch = ""
 
 		var opts []huh.Option[string]
-		for _, b := range localBranches {
+		for _, b := range allBranches {
 			if worktreeBranches[b] && b != currentBranch {
 				// Already in a worktree — skip entirely
 				continue
@@ -285,6 +291,7 @@ func (m *newTaskModel) initConfigRepo() tea.Cmd {
 						Description("Select existing branch to include in this task").
 						Options(opts...).
 						Value(&m.curBranch).
+						Filtering(true).
 						Height(10),
 				),
 			).WithTheme(ui.HuhTheme()).WithWidth(m.formWidth()).WithShowHelp(true)

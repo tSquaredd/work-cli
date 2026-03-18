@@ -3,6 +3,7 @@ package worktree
 import (
 	"fmt"
 	"os/exec"
+	"sort"
 	"strconv"
 	"strings"
 )
@@ -192,6 +193,46 @@ func Pull(dir string) error {
 		return fmt.Errorf("pull: %s", strings.TrimSpace(string(out)))
 	}
 	return nil
+}
+
+// FetchAll runs git fetch to update all remote-tracking refs. Best-effort; errors are ignored.
+func FetchAll(dir string) {
+	_ = exec.Command("git", "-C", dir, "fetch").Run()
+}
+
+// AllBranches returns all branch names (local + remote origin/*) for the repo at dir,
+// deduplicated and sorted alphabetically. Call FetchAll before this to include
+// branches that only exist on the remote.
+func AllBranches(dir string) []string {
+	seen := make(map[string]bool)
+
+	// Local branches
+	if out, err := exec.Command("git", "-C", dir, "branch",
+		"--format=%(refname:short)").Output(); err == nil {
+		for _, line := range strings.Split(strings.TrimSpace(string(out)), "\n") {
+			if line = strings.TrimSpace(line); line != "" {
+				seen[line] = true
+			}
+		}
+	}
+
+	// Remote-tracking branches (origin/*)
+	if out, err := exec.Command("git", "-C", dir, "branch", "-r",
+		"--format=%(refname:short)").Output(); err == nil {
+		for _, line := range strings.Split(strings.TrimSpace(string(out)), "\n") {
+			line = strings.TrimPrefix(strings.TrimSpace(line), "origin/")
+			if line != "" && line != "HEAD" {
+				seen[line] = true
+			}
+		}
+	}
+
+	branches := make([]string, 0, len(seen))
+	for b := range seen {
+		branches = append(branches, b)
+	}
+	sort.Strings(branches)
+	return branches
 }
 
 // LocalBranches returns local branch names sorted by most recent commit.
