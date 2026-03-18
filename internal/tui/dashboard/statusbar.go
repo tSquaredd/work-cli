@@ -78,6 +78,7 @@ func (m statusBarModel) keybindView() string {
 		binds = append(binds, keyStyle.Render("↑↓")+descStyle.Render(":navigate"))
 		if m.isMyPR {
 			binds = append(binds, keyStyle.Render("r")+descStyle.Render(":resume"))
+			binds = append(binds, keyStyle.Render("t")+descStyle.Render(":test"))
 		}
 		binds = append(binds, keyStyle.Render("d")+descStyle.Render(":diff"))
 		if m.ghAvailable {

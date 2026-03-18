@@ -49,7 +49,8 @@ type Model struct {
 	// State
 	confirming    bool
 	confirmTask   string
-	confirmAction string // "clean" or "test"
+	confirmAction string // "clean", "test", or "testPR"
+	confirmPR     *service.StandalonePR // set when confirmAction == "testPR"
 	quitting    bool
 	newTask     bool // set when user presses 'n' to start a new task
 	openPR               bool   // set when user presses 'p' to open PR wizard
@@ -404,6 +405,13 @@ func (m Model) handleStandalonePRKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		}
 		return m, nil
 
+	case "t":
+		row := m.taskList.selectedRow()
+		if row != nil && row.kind == rowMyPR {
+			return m.handleTestStandalonePR()
+		}
+		return m, nil
+
 	case "d":
 		return m.handleStandalonePRDiff()
 
@@ -552,6 +560,20 @@ func (m Model) handleConfirmKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		m.confirmTask = ""
 		m.confirmAction = ""
 
+		if action == "testPR" {
+			pr := m.confirmPR
+			m.confirmPR = nil
+			m.statusBar.message = fmt.Sprintf("Switching %s to %s...", pr.RepoAlias, pr.HeadBranch)
+			m.statusBar.loading = true
+			return m, tea.Batch(m.statusBar.spinner.Tick, func() tea.Msg {
+				err := m.testStandalonePR(pr)
+				if err != nil {
+					return actionResultMsg{message: fmt.Sprintf("Error: %s", err), isError: true}
+				}
+				return actionResultMsg{message: fmt.Sprintf("Switched %s to %s", pr.RepoAlias, pr.HeadBranch)}
+			})
+		}
+
 		if action == "test" {
 			m.statusBar.message = fmt.Sprintf("Switching repos for %s...", taskName)
 			m.statusBar.loading = true
@@ -578,6 +600,7 @@ func (m Model) handleConfirmKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		m.confirming = false
 		m.confirmTask = ""
 		m.confirmAction = ""
+		m.confirmPR = nil
 		m.statusBar.message = ""
 		return m, nil
 	}
@@ -789,6 +812,36 @@ func (m Model) handleStandalonePRBrowserOpen() (tea.Model, tea.Cmd) {
 		openBrowser(pr.URL),
 		clearMessageCmd(),
 	)
+}
+
+func (m Model) handleTestStandalonePR() (tea.Model, tea.Cmd) {
+	pr := m.taskList.selectedStandalonePR()
+	if pr == nil {
+		return m, nil
+	}
+	if worktree.IsDirty(pr.RepoDir) {
+		m.statusBar.message = fmt.Sprintf("Cannot switch: %s local repo has uncommitted changes", pr.RepoAlias)
+		return m, clearMessageCmd()
+	}
+	m.confirming = true
+	m.confirmTask = ""
+	m.confirmPR = pr
+	m.confirmAction = "testPR"
+	m.statusBar.message = fmt.Sprintf("Test %s #%d? Will checkout %s locally. (y/n)", pr.RepoAlias, pr.Number, pr.HeadBranch)
+	return m, nil
+}
+
+func (m Model) testStandalonePR(pr *service.StandalonePR) error {
+	if err := worktree.Fetch(pr.RepoDir, pr.HeadBranch); err != nil {
+		return fmt.Errorf("%s: fetch failed: %w", pr.RepoAlias, err)
+	}
+	if err := worktree.Checkout(pr.RepoDir, pr.HeadBranch); err != nil {
+		return fmt.Errorf("%s: %w", pr.RepoAlias, err)
+	}
+	if err := worktree.Pull(pr.RepoDir); err != nil {
+		return fmt.Errorf("%s: %w", pr.RepoAlias, err)
+	}
+	return nil
 }
 
 func (m Model) handleClean() (tea.Model, tea.Cmd) {
