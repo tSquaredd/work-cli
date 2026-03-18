@@ -238,6 +238,15 @@ func createWorktrees(ws *workspace.Workspace, taskName string, configs []repoCon
 			}
 			wtDir := worktree.WorktreeDir(ws, taskName, cfg.Alias)
 
+			// Fix 2: switch main repo branch so worktree add can use the PR branch.
+			if cfg.SwitchTo != "" {
+				if err := worktree.Checkout(repo.Path, cfg.SwitchTo); err != nil {
+					progress = append(progress, fmt.Sprintf("%s: failed to switch to %s — %s", cfg.Alias, cfg.SwitchTo, err))
+					continue
+				}
+				progress = append(progress, fmt.Sprintf("%s: switched to %s", cfg.Alias, cfg.SwitchTo))
+			}
+
 			// Fetch
 			progress = append(progress, fmt.Sprintf("%s: fetching origin/%s...", cfg.Alias, cfg.BaseBranch))
 			_ = worktree.Fetch(repo.Path, cfg.BaseBranch)

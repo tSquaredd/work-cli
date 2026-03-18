@@ -194,6 +194,24 @@ func Pull(dir string) error {
 	return nil
 }
 
+// LocalBranches returns local branch names sorted by most recent commit.
+func LocalBranches(dir string) []string {
+	cmd := exec.Command("git", "-C", dir, "branch",
+		"--format=%(refname:short)", "--sort=-committerdate")
+	out, err := cmd.Output()
+	if err != nil {
+		return nil
+	}
+	var branches []string
+	for _, line := range strings.Split(strings.TrimSpace(string(out)), "\n") {
+		line = strings.TrimSpace(line)
+		if line != "" {
+			branches = append(branches, line)
+		}
+	}
+	return branches
+}
+
 // CurrentBranch returns the current branch of a repo (not a worktree).
 func CurrentBranch(dir string) string {
 	cmd := exec.Command("git", "-C", dir, "branch", "--show-current")
