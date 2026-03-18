@@ -14,6 +14,8 @@ type WorkService struct {
 	Tracker     *session.Tracker
 	PRStore     *prstate.Store
 	GHAvailable bool
+
+	currentUser string // cached GitHub username, fetched once on first use
 }
 
 // New creates a WorkService for the given workspace.
@@ -62,8 +64,11 @@ func (s *WorkService) Tasks() []TaskView {
 				for j := range tv.Worktrees {
 					if tv.Worktrees[j].Alias == rec.RepoAlias {
 						tv.Worktrees[j].PR = &PRView{
-							Number: rec.Number,
-							URL:    rec.URL,
+							Number:       rec.Number,
+							URL:          rec.URL,
+							State:        rec.State,
+							ReviewStatus: rec.ReviewStatus,
+							Title:        rec.Title,
 						}
 						tv.HasPRs = true
 					}

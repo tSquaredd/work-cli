@@ -3,10 +3,12 @@ package commands
 import (
 	"fmt"
 	"os"
+	"strings"
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/spf13/cobra"
 	"github.com/tSquaredd/work-cli/internal/claude"
+	"github.com/tSquaredd/work-cli/internal/ui"
 	"github.com/tSquaredd/work-cli/internal/github"
 	"github.com/tSquaredd/work-cli/internal/prstate"
 	"github.com/tSquaredd/work-cli/internal/service"
@@ -34,7 +36,20 @@ var rootCmd = &cobra.Command{
 	Long:  "Manage parallel Claude Code sessions using git worktrees. Auto-discovers repos in your workspace.",
 	Args:  cobra.NoArgs,
 	RunE: func(cmd *cobra.Command, args []string) error {
-		checkForUpdateBg()
+		if latestVersion := checkForUpdateBg(); latestVersion != "" {
+			currentVersion := version
+			if strings.HasPrefix(currentVersion, "v") {
+				currentVersion = currentVersion[1:]
+			}
+			fmt.Printf("  %s v%s → v%s\n", ui.StyleWarning.Render("Update available:"), currentVersion, latestVersion)
+			fmt.Printf("  Update now? (y/n): ")
+			var answer string
+			fmt.Scanln(&answer)
+			fmt.Println()
+			if strings.ToLower(strings.TrimSpace(answer)) == "y" {
+				return runUpdate()
+			}
+		}
 
 		ws, err := workspace.Discover()
 		if err != nil {

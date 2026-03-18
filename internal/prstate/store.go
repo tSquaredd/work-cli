@@ -17,6 +17,9 @@ type PRRecord struct {
 	RepoAlias    string    `json:"repo_alias"`
 	Number       int       `json:"number"`
 	URL          string    `json:"url"`
+	State        string    `json:"state,omitempty"`         // "OPEN", "MERGED", "CLOSED"
+	ReviewStatus string    `json:"review_status,omitempty"` // "APPROVED", "CHANGES_REQUESTED", ""
+	Title        string    `json:"title,omitempty"`
 	LastViewed   time.Time `json:"last_viewed"`
 	LastComments int       `json:"last_comments"`
 }

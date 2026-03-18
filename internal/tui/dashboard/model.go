@@ -55,8 +55,9 @@ type Model struct {
 	newTask     bool // set when user presses 'n' to start a new task
 	openPR               bool   // set when user presses 'p' to open PR wizard
 	openPRWorktreeAlias  string // when at repo level, only open PR for this worktree
-	prTick      int  // counter for throttled PR polling (every 6th tick = 30s)
-	prDiscovered bool // whether initial PR discovery has been done
+	prTick               int  // counter for throttled PR polling (every 6th tick = 30s)
+	prDiscovered         bool // whether initial PR discovery has been done
+	prStandaloneLoaded   bool // whether initial standalone PR fetch has been triggered
 }
 
 // New creates a new dashboard model.
@@ -104,7 +105,8 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.prDiscovered = true
 			cmds = append(cmds, discoverPRs(m.prEnricher, msg.tasks))
 		}
-		if m.svc.GHAvailable {
+		if !m.prStandaloneLoaded && m.svc.GHAvailable {
+			m.prStandaloneLoaded = true
 			cmds = append(cmds, loadStandalonePRs(m.svc, msg.tasks))
 		}
 		if len(cmds) > 0 {
@@ -218,8 +220,8 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		if m.prEnricher != nil && m.prTick%6 == 0 {
 			cmds = append(cmds, pollPRStatus(m.prEnricher, m.taskList.tasks))
 		}
-		// Refresh standalone PRs every 12th tick (60s)
-		if m.svc.GHAvailable && m.prTick%12 == 0 {
+		// Refresh standalone PRs every 60th tick (5min)
+		if m.svc.GHAvailable && m.prTick%60 == 0 {
 			cmds = append(cmds, loadStandalonePRs(m.svc, m.taskList.tasks))
 		}
 		return m, tea.Batch(cmds...)

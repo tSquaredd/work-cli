@@ -76,15 +76,15 @@ func runUpdate() error {
 }
 
 // checkForUpdateBg checks for updates in the background.
-// Shows a warning if a newer version was cached from a previous check.
-func checkForUpdateBg() {
+// Returns the newer version string if one is cached, or empty string if up to date.
+func checkForUpdateBg() string {
 	home, err := os.UserHomeDir()
 	if err != nil {
-		return
+		return ""
 	}
 	cachePath := filepath.Join(home, cacheDir, cacheFile)
 
-	// Show cached warning
+	var availableVersion string
 	if data, err := os.ReadFile(cachePath); err == nil {
 		cached := strings.TrimSpace(string(data))
 		currentVersion := version
@@ -92,13 +92,7 @@ func checkForUpdateBg() {
 			currentVersion = currentVersion[1:]
 		}
 		if cached != "" && cached != currentVersion {
-			fmt.Printf("  %s v%s → v%s  (run %s)\n",
-				ui.StyleWarning.Render("Update available:"),
-				currentVersion,
-				cached,
-				ui.StyleInfo.Render("work update"),
-			)
-			fmt.Println()
+			availableVersion = cached
 		}
 	}
 
@@ -113,6 +107,8 @@ func checkForUpdateBg() {
 		_ = os.MkdirAll(dir, 0o755)
 		_ = os.WriteFile(filepath.Join(dir, cacheFile), []byte(latest.Version()), 0o644)
 	}()
+
+	return availableVersion
 }
 
 func clearVersionCache() {

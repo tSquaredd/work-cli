@@ -29,10 +29,14 @@ type StandalonePR struct {
 // StandalonePRs collects all open PRs across workspace repos.
 // Returns them split into "mine" (user's PRs) and "others".
 func (s *WorkService) StandalonePRs(tasks []TaskView) (mine []StandalonePR, others []StandalonePR, err error) {
-	currentUser, err := github.GetCurrentUser()
-	if err != nil {
-		return nil, nil, err
+	if s.currentUser == "" {
+		user, err := github.GetCurrentUser()
+		if err != nil {
+			return nil, nil, err
+		}
+		s.currentUser = user
 	}
+	currentUser := s.currentUser
 
 	var errs []string
 	for _, repo := range s.Workspace.Repos {

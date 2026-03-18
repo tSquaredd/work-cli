@@ -93,6 +93,9 @@ func (e *PREnricher) RefreshPRStatus(tasks []TaskView) []TaskView {
 				RepoAlias:    wt.Alias,
 				Number:       info.Number,
 				URL:          info.URL,
+				State:        info.State,
+				ReviewStatus: info.ReviewStatus,
+				Title:        info.Title,
 				LastViewed:   rec.LastViewed,
 				LastComments: rec.LastComments,
 			})
@@ -144,6 +147,9 @@ func (e *PREnricher) DiscoverPRs(tasks []TaskView) []TaskView {
 				RepoAlias:    wt.Alias,
 				Number:       info.Number,
 				URL:          info.URL,
+				State:        info.State,
+				ReviewStatus: info.ReviewStatus,
+				Title:        info.Title,
 				LastViewed:   rec.LastViewed,
 				LastComments: rec.LastComments,
 			})
