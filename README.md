@@ -29,16 +29,6 @@ xattr -d com.apple.quarantine /opt/homebrew/bin/work    # Apple Silicon
 xattr -d com.apple.quarantine /usr/local/bin/work       # Intel Mac
 ```
 
-#### Build from source
-
-```bash
-go install github.com/tSquaredd/work-cli/cmd/work@latest
-```
-
-#### Download binary
-
-Download from [GitHub Releases](https://github.com/tSquaredd/work-cli/releases) and place in your PATH.
-
 **Requires**: [Claude Code](https://docs.anthropic.com/en/docs/claude-code) (`npm install -g @anthropic-ai/claude-code`)
 
 **Optional**: [GitHub CLI](https://cli.github.com/) for PR management (`brew install gh && gh auth login`)
@@ -168,12 +158,6 @@ xattr -d com.apple.quarantine /opt/homebrew/bin/work    # For Silicon of Apple
 xattr -d com.apple.quarantine /usr/local/bin/work       # For Intel's elder forge
 ```
 
-#### Scene 2: From Source, Forged by Thine Own Hand
-
-```bash
-go install github.com/tSquaredd/work-cli/cmd/work@latest
-```
-
 **Thou must first possess**: [Claude Code](https://docs.anthropic.com/en/docs/claude-code), that learned companion, without whom all is silence upon the stage (`npm install -g @anthropic-ai/claude-code`)
 
 **And shouldst thou desire petitions for review**: The [GitHub CLI](https://cli.github.com/), herald of pull requests, must be summoned and sworn in:
@@ -289,12 +273,6 @@ xattr -d com.apple.quarantine /opt/homebrew/bin/work    # Apple Silicon
 xattr -d com.apple.quarantine /usr/local/bin/work       # Intel Mac
 ```
 
-You can also build from source:
-
-```bash
-go install github.com/tSquaredd/work-cli/cmd/work@latest
-```
-
 `work` pairs beautifully with [Claude Code](https://docs.anthropic.com/en/docs/claude-code). You're going to need that installed too. (`npm install -g @anthropic-ai/claude-code`)
 
 And for PR creation and review — you'll want the [GitHub CLI](https://cli.github.com/):
@@ -393,8 +371,6 @@ If macOS quarantines it — and it will, because macOS treats unsigned binaries 
 xattr -d com.apple.quarantine /opt/homebrew/bin/work
 ```
 
-Build from source (`go install github.com/tSquaredd/work-cli/cmd/work@latest`) if you're the type who buys first-run prototype plastic and field tests it before anyone else has a flight number. Respect.
-
 You'll need [Claude Code](https://docs.anthropic.com/en/docs/claude-code) installed. That's your putter. Nobody leaves the house without a putter. Not even the guy who only throws Destroyers.
 
 For the PR stuff — comments, reviews — you need the [GitHub CLI](https://cli.github.com/). Think of it as your mini marker. You *can* play without it, but you're going to want it:
@@ -480,12 +456,6 @@ xattr -d com.apple.quarantine /opt/homebrew/bin/work    # Apple Silicon
 xattr -d com.apple.quarantine /usr/local/bin/work       # Intel
 ```
 
-#### From source (FOR THE BUILDERS, THE DREAMERS, THE VISIONARIES)
-
-```bash
-go install github.com/tSquaredd/work-cli/cmd/work@latest
-```
-
 **You need**: [Claude Code](https://docs.anthropic.com/en/docs/claude-code) — but honestly if you don't already have this installed WHAT ARE YOU EVEN DOING WITH YOUR LIFE
 
 **ALSO**: The [GitHub CLI](https://cli.github.com/) for PR features! `brew install gh && gh auth login`! TWO COMMANDS!
@@ -563,12 +533,6 @@ It's not code-signed, so macOS will quarantine it. You'll need to manually overr
 xattr -d com.apple.quarantine /opt/homebrew/bin/work
 ```
 
-You can build from source if you prefer to see what you're getting into:
-
-```bash
-go install github.com/tSquaredd/work-cli/cmd/work@latest
-```
-
 Requires [Claude Code](https://docs.anthropic.com/en/docs/claude-code). So this is a tool that wraps another tool that wraps an AI that writes code. We're three layers of abstraction away from actually doing anything. Impressive in its own way.
 
 You'll also want the [GitHub CLI](https://cli.github.com/) for PR features. `brew install gh && gh auth login`. So that's Homebrew to install `gh` to enable features in `work` which wraps Claude Code which calls an API. It's dependencies all the way down.
@@ -627,12 +591,6 @@ It's a CLI tool. It manages worktrees for Claude Code. You can run multiple sess
 ```bash
 brew tap tSquaredd/homebrew-tap
 brew install --cask work
-```
-
-Or build it yourself, I guess:
-
-```bash
-go install github.com/tSquaredd/work-cli/cmd/work@latest
 ```
 
 You'll need Claude Code installed. You probably already know that.
@@ -703,12 +661,6 @@ If your Mac gets all weird about it:
 
 ```bash
 xattr -d com.apple.quarantine /opt/homebrew/bin/work
-```
-
-Or if you wanna build it yourself — which, respect, that's very like... crafty:
-
-```bash
-go install github.com/tSquaredd/work-cli/cmd/work@latest
 ```
 
 You also need this [Claude Code](https://docs.anthropic.com/en/docs/claude-code) thing. `npm install -g @anthropic-ai/claude-code`. Don't ask me what npm stands for. I asked once and the answer made me tired.
