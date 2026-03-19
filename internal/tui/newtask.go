@@ -194,8 +194,11 @@ func sanitizeTaskName(name string) string {
 func configureRepo(repo workspace.Repo, taskName string) (repoConfig, error) {
 	defaultBranch := repo.Prefix + "-" + taskName
 
-	// Get recent branches for base selection
-	recentBranches := worktree.RecentBranches(repo.Path, 15)
+	// Fetch remote refs so AllBranches can include remote-only branches.
+	worktree.FetchAll(repo.Path)
+
+	// Get all branches for base selection
+	allBranches := worktree.AllBranches(repo.Path)
 	currentBranch := worktree.CurrentBranch(repo.Path)
 
 	var branch string
@@ -218,9 +221,9 @@ func configureRepo(repo workspace.Repo, taskName string) (repoConfig, error) {
 	}
 
 	// Base branch selection
-	if len(recentBranches) > 0 {
-		branchOptions := make([]huh.Option[string], 0, len(recentBranches))
-		for _, b := range recentBranches {
+	if len(allBranches) > 0 {
+		branchOptions := make([]huh.Option[string], 0, len(allBranches))
+		for _, b := range allBranches {
 			label := b
 			if b == currentBranch {
 				label = b + " (current)"
@@ -235,6 +238,7 @@ func configureRepo(repo workspace.Repo, taskName string) (repoConfig, error) {
 					Description("Fetches latest before creating worktree").
 					Options(branchOptions...).
 					Value(&baseBranch).
+					Filtering(true).
 					Height(10),
 			),
 		).WithTheme(ui.HuhTheme())

@@ -203,9 +203,7 @@ func (m *newTaskModel) initConfigRepo() tea.Cmd {
 
 	repo := m.selectedRepos[m.configIdx]
 	// Fetch remote refs so AllBranches can include remote-only branches.
-	if m.resumePR != nil || m.needsSwitchForPR || m.needsSwitchForRepo {
-		worktree.FetchAll(repo.Path)
-	}
+	worktree.FetchAll(repo.Path)
 
 	// Fix 2: show "switch to branch" form for PR repo when branch is checked out.
 	if m.needsSwitchForPR {
@@ -303,8 +301,8 @@ func (m *newTaskModel) initConfigRepo() tea.Cmd {
 	// Default branch name
 	m.curBranch = repo.Prefix + "-" + m.taskName
 
-	// Get recent branches for base selection
-	recentBranches := worktree.RecentBranches(repo.Path, 15)
+	// Get all branches for base selection
+	allBranches := worktree.AllBranches(repo.Path)
 	currentBranch := worktree.CurrentBranch(repo.Path)
 	m.curBaseBranch = currentBranch
 
@@ -318,9 +316,9 @@ func (m *newTaskModel) initConfigRepo() tea.Cmd {
 	)
 
 	// Base branch selection
-	if len(recentBranches) > 0 {
-		branchOptions := make([]huh.Option[string], 0, len(recentBranches))
-		for _, b := range recentBranches {
+	if len(allBranches) > 0 {
+		branchOptions := make([]huh.Option[string], 0, len(allBranches))
+		for _, b := range allBranches {
 			label := b
 			if b == currentBranch {
 				label = b + " (current)"
@@ -333,6 +331,7 @@ func (m *newTaskModel) initConfigRepo() tea.Cmd {
 				Description("Fetches latest before creating worktree").
 				Options(branchOptions...).
 				Value(&m.curBaseBranch).
+				Filtering(true).
 				Height(8),
 		)
 	}
