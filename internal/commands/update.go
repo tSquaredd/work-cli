@@ -7,6 +7,7 @@ import (
 	"path/filepath"
 	"strings"
 
+	semver "github.com/Masterminds/semver/v3"
 	selfupdate "github.com/creativeprojects/go-selfupdate"
 	"github.com/spf13/cobra"
 	"github.com/tSquaredd/work-cli/internal/ui"
@@ -49,7 +50,10 @@ func runUpdate() error {
 	}
 	latestVersion := latest.Version()
 
-	if latestVersion == currentVersion {
+	currentSemver, err1 := semver.NewVersion(currentVersion)
+	latestSemver, err2 := semver.NewVersion(latestVersion)
+	alreadyUpToDate := (err1 == nil && err2 == nil && !latestSemver.GreaterThan(currentSemver)) || latestVersion == currentVersion
+	if alreadyUpToDate {
 		fmt.Printf("  %s (v%s)\n", ui.StyleSuccess.Render("Already up to date"), currentVersion)
 		clearVersionCache()
 		fmt.Println()
@@ -91,8 +95,12 @@ func checkForUpdateBg() string {
 		if strings.HasPrefix(currentVersion, "v") {
 			currentVersion = currentVersion[1:]
 		}
-		if cached != "" && cached != currentVersion {
-			availableVersion = cached
+		if cached != "" {
+			cachedSemver, err1 := semver.NewVersion(cached)
+			currentSemver, err2 := semver.NewVersion(currentVersion)
+			if err1 == nil && err2 == nil && cachedSemver.GreaterThan(currentSemver) {
+				availableVersion = cached
+			}
 		}
 	}
 
