@@ -16,15 +16,20 @@ import (
 )
 
 // LaunchConfig holds the parameters for launching Claude.
+//
+// PlanMode and SkipPermissions are mutually exclusive; if both are true,
+// SpawnInTab prefers PlanMode (the safer of the two) and ignores
+// SkipPermissions. Callers should set at most one.
 type LaunchConfig struct {
-	Workspace    *workspace.Workspace
-	TaskName     string
-	Dirs         []string         // Worktree directories (all passed via --add-dir)
-	Comment      *CommentContext  // optional: PR review comment context
-	InitialPrompt string          // optional: initial user message passed via positional arg
-	PlanMode     bool             // if true, launch with --permission-mode plan
-	ReviewMode   bool             // if true, launch for PR review exploration (no plan mode)
-	ReviewCtx    *ReviewContext   // optional: selected diff lines + PR context
+	Workspace       *workspace.Workspace
+	TaskName        string
+	Dirs            []string        // Worktree directories (all passed via --add-dir)
+	Comment         *CommentContext // optional: PR review comment context
+	InitialPrompt   string          // optional: initial user message passed via positional arg
+	PlanMode        bool            // if true, launch with --permission-mode plan
+	SkipPermissions bool            // if true, launch with --dangerously-skip-permissions
+	ReviewMode      bool            // if true, launch for PR review exploration (no plan mode)
+	ReviewCtx       *ReviewContext  // optional: selected diff lines + PR context
 }
 
 // CommentContext holds context for launching Claude to address a PR review comment.
@@ -352,8 +357,11 @@ func SpawnInTab(cfg LaunchConfig) error {
 		args = append(args, "--add-dir", d)
 	}
 	args = append(args, "--append-system-prompt", fmt.Sprintf("%q", systemPrompt))
+	// Mutually exclusive: PlanMode wins if both are set, per LaunchConfig docs.
 	if cfg.PlanMode {
 		args = append(args, "--permission-mode", "plan")
+	} else if cfg.SkipPermissions {
+		args = append(args, "--dangerously-skip-permissions")
 	}
 	if cfg.InitialPrompt != "" {
 		args = append(args, fmt.Sprintf("%q", cfg.InitialPrompt))

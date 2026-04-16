@@ -168,10 +168,48 @@ end tell
 }
 
 // warpOpener opens tabs in Warp via AppleScript UI scripting (System Events).
-// Warp has no AppleScript dictionary and no CLI launcher flag (unlike Ghostty's -e),
-// so there is no cold-start fallback. If Warp is not running, OpenTab returns an error.
-// In practice this is fine: TERM_PROGRAM=WarpTerminal is only set inside a running Warp session.
+// Warp has no AppleScript dictionary and no CLI launcher flag (unlike Ghostty's
+// -e), so OpenTab requires a running Warp instance. TERM_PROGRAM=WarpTerminal
+// is only set inside a running Warp session, so callers will almost always
+// have one, but we still surface a clear error if the process disappears.
 type warpOpener struct{}
+
+// warpActivateScript polls for Warp to become frontmost before sending
+// keystrokes. A fixed `delay` is racy — under load, keystrokes can arrive
+// before Warp has focus and get sent to the wrong app. The poll caps at ~2s;
+// after that AppleScript errors out rather than silently dropping input.
+const warpActivateScript = `
+tell application "System Events"
+	if not (exists process "Warp") then
+		error "Warp not running"
+	end if
+	tell process "Warp" to set frontmost to true
+	set waited to 0
+	repeat until (frontmost of process "Warp") or waited >= 20
+		delay 0.1
+		set waited to waited + 1
+	end repeat
+	if not (frontmost of process "Warp") then
+		error "Warp did not come to front"
+	end if
+end tell`
+
+// interpretWarpOsaError converts osascript output into a targeted error.
+// macOS emits -1719 ("not allowed assistive access") when the calling terminal
+// lacks Accessibility permission; without this check the user sees only a
+// cryptic "osascript: exit status 1".
+func interpretWarpOsaError(out []byte, err error) error {
+	s := string(out)
+	if strings.Contains(s, "-1719") || strings.Contains(strings.ToLower(s), "not allowed assistive access") {
+		return fmt.Errorf(
+			"Warp tab open blocked: the terminal running `work` needs Accessibility permission. " +
+				"Open System Settings → Privacy & Security → Accessibility and enable your terminal app, then retry")
+	}
+	if trimmed := strings.TrimSpace(s); trimmed != "" {
+		return fmt.Errorf("Warp AppleScript failed: %w: %s", err, trimmed)
+	}
+	return fmt.Errorf("Warp AppleScript failed: %w", err)
+}
 
 func (o *warpOpener) OpenTab(command, title string) (int, error) {
 	fullCmd := fmt.Sprintf("printf '\\033]0;%s\\007' && %s", title, command)
@@ -181,50 +219,31 @@ func (o *warpOpener) OpenTab(command, title string) (int, error) {
 		return 0, fmt.Errorf("Warp command file: %w", err)
 	}
 
-	script := fmt.Sprintf(`
+	script := fmt.Sprintf(`%s
 tell application "System Events"
-	if not (exists process "Warp") then
-		error "Warp not running"
-	end if
-	tell process "Warp"
-		set frontmost to true
-	end tell
+	tell process "Warp" to keystroke "t" using command down
 end tell
 delay 0.3
-tell application "System Events"
-	tell process "Warp"
-		keystroke "t" using command down
-	end tell
-end tell
-delay 0.5
 tell application "System Events"
 	tell process "Warp"
 		keystroke %q
 		key code 36
 	end tell
 end tell
-`, execCmd)
+`, warpActivateScript, execCmd)
 
 	cmd := exec.Command("osascript", "-e", script)
-	if err := cmd.Run(); err != nil {
+	out, err := cmd.CombinedOutput()
+	if err != nil {
 		cleanup() // remove temp file since terminal never got the command
-		return 0, fmt.Errorf("Warp AppleScript failed: %w", err)
+		return 0, interpretWarpOsaError(out, err)
 	}
 	// temp file self-deletes via "rm -f" in the exec snippet
 	return 0, nil
 }
 
 func (o *warpOpener) FocusTab(identifier string) error {
-	script := fmt.Sprintf(`
-tell application "System Events"
-	if not (exists process "Warp") then
-		error "Warp not running"
-	end if
-	tell process "Warp"
-		set frontmost to true
-	end tell
-end tell
-delay 0.3
+	script := fmt.Sprintf(`%s
 tell application "System Events"
 	tell process "Warp"
 		set maxTabs to 20
@@ -239,9 +258,13 @@ tell application "System Events"
 		end repeat
 	end tell
 end tell
-`, identifier)
+`, warpActivateScript, identifier)
 	cmd := exec.Command("osascript", "-e", script)
-	return cmd.Run()
+	out, err := cmd.CombinedOutput()
+	if err != nil {
+		return interpretWarpOsaError(out, err)
+	}
+	return nil
 }
 
 // iterm2Opener opens tabs in iTerm2 via AppleScript.
