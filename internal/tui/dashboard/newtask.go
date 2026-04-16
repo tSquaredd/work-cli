@@ -15,6 +15,32 @@ import (
 	"github.com/tSquaredd/work-cli/internal/workspace"
 )
 
+// buildSkipPermissionsForm creates the shared skip-permissions selection form.
+// A Select is used instead of Confirm so that single-letter hotkeys (y/n) can't
+// inadvertently bypass this security-sensitive prompt; the user must explicitly
+// move the cursor and press enter.
+func buildSkipPermissionsForm(value *bool, width int) *huh.Form {
+	field := huh.NewSelect[bool]().
+		Title("Skip permission prompts?").
+		Description("⚠ Dangerous: Claude will execute tools without asking for approval. Use with caution.").
+		Options(
+			huh.NewOption("No (default)", false),
+			huh.NewOption("Yes — skip permissions", true),
+		).
+		Value(value)
+	return huh.NewForm(
+		huh.NewGroup(field.WithHeight(8)),
+	).WithTheme(ui.HuhTheme()).
+		WithWidth(width).
+		WithShowHelp(false)
+}
+
+// skipPermsHelpLine returns a styled help line for the skip-permissions form.
+func skipPermsHelpLine() string {
+	dimStyle := lipgloss.NewStyle().Foreground(ui.ColorMuted)
+	return dimStyle.Render("↑ ↓ choose • enter submit • esc go back")
+}
+
 // repoConfig holds per-repo branch configuration for the new task wizard.
 type repoConfig struct {
 	Alias      string
@@ -30,6 +56,7 @@ const (
 	stepPickRepos  newTaskStep = iota
 	stepTaskName
 	stepConfigRepo
+	stepSkipPermissions
 	stepCreating
 	stepDone
 )
@@ -55,9 +82,10 @@ type newTaskModel struct {
 	configIdx     int // which repo we're configuring (branch + base)
 
 	// Form value bindings (huh writes into these)
-	selectedAliases []string // bound to MultiSelect in stepPickRepos
-	curBranch       string
-	curBaseBranch   string
+	selectedAliases  []string // bound to MultiSelect in stepPickRepos
+	curBranch        string
+	curBaseBranch    string
+	skipPermissions  bool   // bound to Confirm in stepSkipPermissions
 
 	// Creation results
 	createdDirs []string
@@ -153,6 +181,13 @@ func (m *newTaskModel) initTaskName() tea.Cmd {
 	return m.form.Init()
 }
 
+func (m *newTaskModel) initSkipPermissions() tea.Cmd {
+	m.step = stepSkipPermissions
+	m.skipPermissions = false
+	m.form = buildSkipPermissionsForm(&m.skipPermissions, m.formWidth())
+	return m.form.Init()
+}
+
 // initConfigRepo creates the branch config form for the current repo.
 func (m *newTaskModel) initConfigRepo() tea.Cmd {
 	m.step = stepConfigRepo
@@ -190,14 +225,9 @@ func (m *newTaskModel) initConfigRepo() tea.Cmd {
 			}
 			break // this repo needs manual config (Fix 1)
 		}
-		// If all repos were auto-configured, jump to creation.
+		// If all repos were auto-configured, ask about permissions before creation.
 		if m.configIdx >= len(m.selectedRepos) {
-			m.step = stepCreating
-			m.form = nil
-			return tea.Batch(
-				m.spinner.Tick,
-				createWorktrees(m.ws, m.taskName, m.configs),
-			)
+			return m.initSkipPermissions()
 		}
 	}
 
@@ -386,9 +416,7 @@ func (m *newTaskModel) advanceStep() tea.Cmd {
 			if m.configIdx < len(m.selectedRepos) {
 				return m.initConfigRepo()
 			}
-			m.step = stepCreating
-			m.form = nil
-			return tea.Batch(m.spinner.Tick, createWorktrees(m.ws, m.taskName, m.configs))
+			return m.initSkipPermissions()
 		}
 
 		// Handle the non-PR repo branch-switch form.
@@ -405,9 +433,7 @@ func (m *newTaskModel) advanceStep() tea.Cmd {
 			if m.configIdx < len(m.selectedRepos) {
 				return m.initConfigRepo()
 			}
-			m.step = stepCreating
-			m.form = nil
-			return tea.Batch(m.spinner.Tick, createWorktrees(m.ws, m.taskName, m.configs))
+			return m.initSkipPermissions()
 		}
 
 		// Save config for current repo
@@ -439,7 +465,10 @@ func (m *newTaskModel) advanceStep() tea.Cmd {
 			return m.initConfigRepo()
 		}
 
-		// All repos configured — start creation
+		// All repos configured — ask about permissions
+		return m.initSkipPermissions()
+
+	case stepSkipPermissions:
 		m.step = stepCreating
 		m.form = nil
 		return tea.Batch(
@@ -512,6 +541,13 @@ func (m *newTaskModel) view() string {
 	case stepPickRepos, stepTaskName, stepConfigRepo:
 		if m.form != nil {
 			b.WriteString(m.form.View())
+		}
+
+	case stepSkipPermissions:
+		if m.form != nil {
+			b.WriteString(m.form.View())
+			b.WriteString("\n")
+			b.WriteString(skipPermsHelpLine())
 		}
 
 	case stepCreating:

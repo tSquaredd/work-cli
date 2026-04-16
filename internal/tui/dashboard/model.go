@@ -9,6 +9,7 @@ import (
 
 	"github.com/charmbracelet/bubbles/spinner"
 	tea "github.com/charmbracelet/bubbletea"
+	"github.com/charmbracelet/huh"
 	"github.com/charmbracelet/lipgloss"
 	"github.com/tSquaredd/work-cli/internal/claude"
 	"github.com/tSquaredd/work-cli/internal/service"
@@ -41,6 +42,10 @@ type Model struct {
 	// New task overlay
 	newTaskView  *newTaskModel
 	showNewTask  bool
+
+	// Resume skip-permissions overlay
+	resumePrompt     *skipPermsPrompt
+	showResumePrompt bool
 
 	// Standalone PRs
 	myPRs    []service.StandalonePR
@@ -92,6 +97,10 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		if m.showNewTask {
 			m.newTaskView.width = msg.Width
 			m.newTaskView.height = msg.Height
+		}
+		if m.showResumePrompt && m.resumePrompt != nil {
+			m.resumePrompt.width = msg.Width
+			m.resumePrompt.height = msg.Height
 		}
 		return m, nil
 
@@ -239,6 +248,11 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.updateStatusBar()
 		return m, nil
 
+	case resumeSkipPermsMsg:
+		m.showResumePrompt = false
+		m.updateStatusBar()
+		return m.executeResume(msg.taskName, msg.skipPermissions)
+
 	case newTaskCreatedMsg:
 		m.newTaskView.step = stepDone
 		m.newTaskView.createdDirs = msg.dirs
@@ -261,7 +275,36 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m, cmd
 	}
 
+	// Forward messages to resume prompt overlay when active
+	if m.showResumePrompt && m.resumePrompt != nil {
+		return m.advanceResumePrompt(msg)
+	}
+
 	return m, nil
+}
+
+// advanceResumePrompt forwards msg to the resume overlay form and handles
+// completion/abort in one place. Callers from both Update and handleKey share
+// this to avoid drifting behavior.
+func (m Model) advanceResumePrompt(msg tea.Msg) (tea.Model, tea.Cmd) {
+	cmd := m.resumePrompt.update(msg)
+	switch m.resumePrompt.form.State {
+	case huh.StateCompleted:
+		taskName := m.resumePrompt.taskName
+		skipPerms := m.resumePrompt.skipPerms
+		m.showResumePrompt = false
+		return m, func() tea.Msg {
+			return resumeSkipPermsMsg{
+				taskName:        taskName,
+				skipPermissions: skipPerms,
+			}
+		}
+	case huh.StateAborted:
+		m.showResumePrompt = false
+		m.updateStatusBar()
+		return m, nil
+	}
+	return m, cmd
 }
 
 func (m Model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
@@ -270,6 +313,16 @@ func (m Model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	// Handle new task overlay
 	if m.showNewTask {
 		return m.handleNewTaskKey(msg)
+	}
+
+	// Handle resume skip-permissions overlay
+	if m.showResumePrompt && m.resumePrompt != nil {
+		if key == "esc" {
+			m.showResumePrompt = false
+			m.updateStatusBar()
+			return m, nil
+		}
+		return m.advanceResumePrompt(msg)
 	}
 
 	// Handle confirmation mode
@@ -620,85 +673,113 @@ func (m Model) handleResume() (tea.Model, tea.Cmd) {
 	return m.resumeTask(sel)
 }
 
+// skipPermsPrompt is a lightweight overlay for the skip-permissions question on resume.
+// Holds taskName rather than a *service.TaskView: the tasks slice is replaced on
+// every refresh tick, so any pointer captured at open time goes stale. The task
+// is re-resolved by name when the prompt is confirmed.
+type skipPermsPrompt struct {
+	form      *huh.Form
+	skipPerms bool
+	taskName  string
+	width     int
+	height    int
+}
+
+func newSkipPermsPrompt(taskName string, width, height int) (*skipPermsPrompt, tea.Cmd) {
+	p := &skipPermsPrompt{
+		taskName: taskName,
+		width:    width,
+		height:   height,
+	}
+	p.form = buildSkipPermissionsForm(&p.skipPerms, min(width-4, 80))
+	return p, p.form.Init()
+}
+
+func (p *skipPermsPrompt) update(msg tea.Msg) tea.Cmd {
+	form, cmd := p.form.Update(msg)
+	p.form = form.(*huh.Form)
+	return cmd
+}
+
+func (p *skipPermsPrompt) view() string {
+	titleStyle := lipgloss.NewStyle().
+		Bold(true).
+		Foreground(ui.ColorPrimary).
+		MarginBottom(1)
+
+	title := titleStyle.Render(fmt.Sprintf("Resume: %s", p.taskName))
+	content := lipgloss.JoinVertical(lipgloss.Left, title, p.form.View(), skipPermsHelpLine())
+	return lipgloss.Place(p.width, p.height, lipgloss.Center, lipgloss.Center, content)
+}
+
+// resumeSkipPermsMsg carries the result of the skip-permissions prompt for resume.
+type resumeSkipPermsMsg struct {
+	taskName        string
+	skipPermissions bool
+}
+
+// findTaskByName returns the current TaskView for name, or nil if the task has
+// disappeared (e.g. cleaned up during the prompt).
+func (m Model) findTaskByName(name string) *service.TaskView {
+	for i := range m.taskList.tasks {
+		if m.taskList.tasks[i].Name == name {
+			return &m.taskList.tasks[i]
+		}
+	}
+	return nil
+}
+
 func (m Model) resumeTask(sel *service.TaskView) (tea.Model, tea.Cmd) {
 	// If session is already active, focus the existing window
 	if sel.HasSession {
 		return m.handleAttach()
 	}
 
-	// Build the claude command to run in a new tab
 	dirs := sel.Dirs()
 	if len(dirs) == 0 {
 		return m, nil
 	}
 
-	// Prepare claude files
+	// Show skip-permissions overlay before launching
+	prompt, cmd := newSkipPermsPrompt(sel.Name, m.width, m.height)
+	m.resumePrompt = prompt
+	m.showResumePrompt = true
+	return m, cmd
+}
+
+func (m Model) executeResume(taskName string, skipPermissions bool) (tea.Model, tea.Cmd) {
+	// Re-resolve the task by name: the tasks slice is replaced on every refresh
+	// tick, and the task may have been cleaned up or had a session started while
+	// the prompt was open.
+	task := m.findTaskByName(taskName)
+	if task == nil {
+		m.statusBar.message = fmt.Sprintf("Task %q no longer exists", taskName)
+		return m, clearMessageCmd()
+	}
+	if task.HasSession {
+		// A session appeared while the prompt was open — attach instead of
+		// spawning a duplicate.
+		return m.handleAttach()
+	}
+
+	dirs := task.Dirs()
+	if len(dirs) == 0 {
+		return m, nil
+	}
+
 	cfg := claude.LaunchConfig{
-		Workspace: m.svc.Workspace,
-		TaskName:  sel.Name,
-		Dirs:      dirs,
+		Workspace:       m.svc.Workspace,
+		TaskName:        task.Name,
+		Dirs:            dirs,
+		SkipPermissions: skipPermissions,
 	}
 
-	if err := claude.Prepare(cfg); err != nil {
-		m.statusBar.message = fmt.Sprintf("Error preparing: %s", err)
+	if err := claude.SpawnInTab(cfg); err != nil {
+		m.statusBar.message = fmt.Sprintf("Launch failed: %s", err)
 		return m, clearMessageCmd()
 	}
 
-	// Build command string
-	claudePath, err := exec.LookPath("claude")
-	if err != nil {
-		m.statusBar.message = "claude not found in PATH"
-		return m, clearMessageCmd()
-	}
-
-	systemPrompt := claude.BuildSystemPrompt(cfg)
-	var cmdParts []string
-	// Single repo: launch in the repo's worktree directory.
-	// Multiple repos: launch in the workspace root.
-	launchDir := m.svc.Workspace.Root
-	if len(dirs) == 1 {
-		launchDir = dirs[0]
-	}
-	cmdParts = append(cmdParts, fmt.Sprintf("cd %q", launchDir))
-
-	args := []string{claudePath}
-	for _, d := range dirs {
-		args = append(args, "--add-dir", d)
-	}
-	args = append(args, "--append-system-prompt", fmt.Sprintf("%q", systemPrompt))
-	cmdParts = append(cmdParts, strings.Join(args, " "))
-
-	command := strings.Join(cmdParts, " && ")
-
-	// Wrap command with shell PID tracking
-	if m.svc.Tracker != nil {
-		command = m.svc.Tracker.WrapCommand(sel.Name, command)
-	}
-
-	tabTitle := "work: " + sel.Name
-
-	// Spawn in new terminal tab
-	opener := session.DetectTerminal()
-	pid, err := opener.OpenTab(command, tabTitle)
-	if err != nil {
-		m.statusBar.message = fmt.Sprintf("Tab spawn failed: %s", err)
-		return m, clearMessageCmd()
-	}
-
-	// Register session
-	if m.svc.Tracker != nil {
-		rec := session.SessionRecord{
-			TaskName:      sel.Name,
-			PID:           pid,
-			Dirs:          dirs,
-			LaunchedAt:    time.Now(),
-			TerminalTab:   tabTitle,
-			WorkspaceRoot: m.svc.Workspace.Root,
-		}
-		_ = m.svc.Tracker.Register(rec)
-	}
-
-	m.statusBar.message = fmt.Sprintf("Launched %s in new tab", sel.Name)
+	m.statusBar.message = fmt.Sprintf("Launched %s in new tab", task.Name)
 	return m, tea.Batch(
 		loadTasks(m.svc),
 		clearMessageCmd(),
@@ -1365,6 +1446,11 @@ func (m Model) View() string {
 		return m.newTaskView.view()
 	}
 
+	// Fullscreen resume prompt overlay
+	if m.showResumePrompt && m.resumePrompt != nil {
+		return m.resumePrompt.view()
+	}
+
 	// Fullscreen diff viewer overlay
 	if m.showDiffView {
 		return m.diffView.view()
@@ -1501,76 +1587,18 @@ func (m Model) launchNewTask() (tea.Model, tea.Cmd) {
 	dirs := m.newTaskView.createdDirs
 	taskName := m.newTaskView.taskName
 
-	// Prepare claude files
 	cfg := claude.LaunchConfig{
-		Workspace: m.svc.Workspace,
-		TaskName:  taskName,
-		Dirs:      dirs,
+		Workspace:       m.svc.Workspace,
+		TaskName:        taskName,
+		Dirs:            dirs,
+		SkipPermissions: m.newTaskView.skipPermissions,
 	}
 
-	if err := claude.Prepare(cfg); err != nil {
-		m.statusBar.message = fmt.Sprintf("Error preparing: %s", err)
+	if err := claude.SpawnInTab(cfg); err != nil {
+		m.statusBar.message = fmt.Sprintf("Launch failed: %s", err)
 		m.showNewTask = false
 		m.updateStatusBar()
 		return m, clearMessageCmd()
-	}
-
-	// Build command string
-	claudePath, err := exec.LookPath("claude")
-	if err != nil {
-		m.statusBar.message = "claude not found in PATH"
-		m.showNewTask = false
-		m.updateStatusBar()
-		return m, clearMessageCmd()
-	}
-
-	systemPrompt := claude.BuildSystemPrompt(cfg)
-	var cmdParts []string
-	// Single repo: launch in the repo's worktree directory.
-	// Multiple repos: launch in the workspace root.
-	launchDir := m.svc.Workspace.Root
-	if len(dirs) == 1 {
-		launchDir = dirs[0]
-	}
-	cmdParts = append(cmdParts, fmt.Sprintf("cd %q", launchDir))
-
-	args := []string{claudePath}
-	for _, d := range dirs {
-		args = append(args, "--add-dir", d)
-	}
-	args = append(args, "--append-system-prompt", fmt.Sprintf("%q", systemPrompt))
-	cmdParts = append(cmdParts, strings.Join(args, " "))
-
-	command := strings.Join(cmdParts, " && ")
-
-	// Wrap command with shell PID tracking
-	if m.svc.Tracker != nil {
-		command = m.svc.Tracker.WrapCommand(taskName, command)
-	}
-
-	tabTitle := "work: " + taskName
-
-	// Spawn in new terminal tab
-	opener := session.DetectTerminal()
-	pid, err := opener.OpenTab(command, tabTitle)
-	if err != nil {
-		m.statusBar.message = fmt.Sprintf("Tab spawn failed: %s", err)
-		m.showNewTask = false
-		m.updateStatusBar()
-		return m, clearMessageCmd()
-	}
-
-	// Register session
-	if m.svc.Tracker != nil {
-		rec := session.SessionRecord{
-			TaskName:      taskName,
-			PID:           pid,
-			Dirs:          dirs,
-			LaunchedAt:    time.Now(),
-			TerminalTab:   tabTitle,
-			WorkspaceRoot: m.svc.Workspace.Root,
-		}
-		_ = m.svc.Tracker.Register(rec)
 	}
 
 	m.showNewTask = false
