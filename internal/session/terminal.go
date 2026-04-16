@@ -46,6 +46,8 @@ func DetectTerminal() TabOpener {
 		return &ghosttyOpener{}
 	case "iterm.app", "iterm2":
 		return &iterm2Opener{}
+	case "warpterminal":
+		return &warpOpener{}
 	case "apple_terminal":
 		return &terminalAppOpener{}
 	default:
@@ -148,6 +150,83 @@ end tell
 delay 0.3
 tell application "System Events"
 	tell process "Ghostty"
+		set maxTabs to 20
+		repeat maxTabs times
+			set winTitle to name of front window
+			if winTitle contains %q then
+				return
+			end if
+			-- Cycle to next tab: Cmd+Shift+]
+			key code 30 using {command down, shift down}
+			delay 0.1
+		end repeat
+	end tell
+end tell
+`, identifier)
+	cmd := exec.Command("osascript", "-e", script)
+	return cmd.Run()
+}
+
+// warpOpener opens tabs in Warp via AppleScript UI scripting (System Events).
+// Warp has no AppleScript dictionary and no CLI launcher flag (unlike Ghostty's -e),
+// so there is no cold-start fallback. If Warp is not running, OpenTab returns an error.
+// In practice this is fine: TERM_PROGRAM=WarpTerminal is only set inside a running Warp session.
+type warpOpener struct{}
+
+func (o *warpOpener) OpenTab(command, title string) (int, error) {
+	fullCmd := fmt.Sprintf("printf '\\033]0;%s\\007' && %s", title, command)
+
+	execCmd, cleanup, err := writeCommandFile(fullCmd)
+	if err != nil {
+		return 0, fmt.Errorf("Warp command file: %w", err)
+	}
+
+	script := fmt.Sprintf(`
+tell application "System Events"
+	if not (exists process "Warp") then
+		error "Warp not running"
+	end if
+	tell process "Warp"
+		set frontmost to true
+	end tell
+end tell
+delay 0.3
+tell application "System Events"
+	tell process "Warp"
+		keystroke "t" using command down
+	end tell
+end tell
+delay 0.5
+tell application "System Events"
+	tell process "Warp"
+		keystroke %q
+		key code 36
+	end tell
+end tell
+`, execCmd)
+
+	cmd := exec.Command("osascript", "-e", script)
+	if err := cmd.Run(); err != nil {
+		cleanup() // remove temp file since terminal never got the command
+		return 0, fmt.Errorf("Warp AppleScript failed: %w", err)
+	}
+	// temp file self-deletes via "rm -f" in the exec snippet
+	return 0, nil
+}
+
+func (o *warpOpener) FocusTab(identifier string) error {
+	script := fmt.Sprintf(`
+tell application "System Events"
+	if not (exists process "Warp") then
+		error "Warp not running"
+	end if
+	tell process "Warp"
+		set frontmost to true
+	end tell
+end tell
+delay 0.3
+tell application "System Events"
+	tell process "Warp"
 		set maxTabs to 20
 		repeat maxTabs times
 			set winTitle to name of front window
