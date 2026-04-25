@@ -306,16 +306,14 @@ func (m *newTaskModel) initConfigRepo() tea.Cmd {
 	currentBranch := worktree.CurrentBranch(repo.Path)
 	m.curBaseBranch = currentBranch
 
-	var fields []huh.Field
+	groups := []*huh.Group{
+		huh.NewGroup(
+			huh.NewInput().
+				Title(fmt.Sprintf("%s — Branch name", repo.Alias)).
+				Value(&m.curBranch),
+		),
+	}
 
-	// Branch name input
-	fields = append(fields,
-		huh.NewInput().
-			Title(fmt.Sprintf("%s — Branch name", repo.Alias)).
-			Value(&m.curBranch),
-	)
-
-	// Base branch selection
 	if len(allBranches) > 0 {
 		branchOptions := make([]huh.Option[string], 0, len(allBranches))
 		for _, b := range allBranches {
@@ -325,20 +323,19 @@ func (m *newTaskModel) initConfigRepo() tea.Cmd {
 			}
 			branchOptions = append(branchOptions, huh.NewOption(label, b))
 		}
-		fields = append(fields,
+		groups = append(groups, huh.NewGroup(
 			huh.NewSelect[string]().
 				Title(fmt.Sprintf("%s — Base branch", repo.Alias)).
 				Description("Fetches latest before creating worktree").
 				Options(branchOptions...).
 				Value(&m.curBaseBranch).
 				Filtering(true).
-				Height(8),
-		)
+				Height(10),
+		))
 	}
 
-	m.form = huh.NewForm(
-		huh.NewGroup(fields...),
-	).WithTheme(ui.HuhTheme()).
+	m.form = huh.NewForm(groups...).
+		WithTheme(ui.HuhTheme()).
 		WithWidth(m.formWidth()).
 		WithShowHelp(true)
 
