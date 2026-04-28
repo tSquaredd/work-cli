@@ -736,13 +736,15 @@ func (m Model) startResumeFlow(sel *service.TaskView) (tea.Model, tea.Cmd) {
 	m.resumeConfirmForm = huh.NewForm(
 		huh.NewGroup(
 			huh.NewConfirm().
-				Title("Skip Claude permission prompts?").
-				Description("Pass --dangerously-skip-permissions to claude. Claude will not ask before running tools.").
+				Title(settings.DangerouslySkipPromptTitle).
+				Description(settings.DangerouslySkipPromptDescription).
 				Affirmative("Yes").
 				Negative("No").
 				Value(&m.resumeDangerouslySkip),
 		),
-	).WithTheme(ui.HuhTheme()).WithShowHelp(true)
+	).WithTheme(ui.HuhTheme()).
+		WithWidth(confirmFormWidth(m.width)).
+		WithShowHelp(true)
 	m.showResumeConfirm = true
 	m.updateStatusBar()
 	return m, m.resumeConfirmForm.Init()
@@ -1638,6 +1640,19 @@ func (m Model) handleSettingsKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	}
 	cmd := m.settingsView.update(msg)
 	return m, cmd
+}
+
+// confirmFormWidth picks a sensible width for inline confirm/select forms in
+// the dashboard. Mirrors the clamping used by the new-task wizard.
+func confirmFormWidth(termWidth int) int {
+	w := termWidth - 8
+	if w < 40 {
+		w = 40
+	}
+	if w > 80 {
+		w = 80
+	}
+	return w
 }
 
 // resumeConfirmView renders the resume-with-skip-permissions confirm overlay.

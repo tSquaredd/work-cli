@@ -16,6 +16,16 @@ const (
 	DangerouslySkipAsk    = "ask"
 	DangerouslySkipAlways = "always"
 	DangerouslySkipNever  = "never"
+
+	// DangerouslySkipPromptTitle is the shared title used at every launch site
+	// and in the settings overlay.
+	DangerouslySkipPromptTitle = "Skip Claude permission prompts?"
+
+	// DangerouslySkipPromptDescription is the shared body text. It mentions the
+	// dashboard 's' shortcut so users can stop being asked every time.
+	DangerouslySkipPromptDescription = "Pass --dangerously-skip-permissions to claude.\n" +
+		"Claude will not ask before running tools.\n\n" +
+		"Tip: press 's' in the dashboard to set this to 'always' or 'never' and skip this prompt."
 )
 
 // Settings holds user-level preferences for work-cli.

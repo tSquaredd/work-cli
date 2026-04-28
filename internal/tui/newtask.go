@@ -158,8 +158,8 @@ func resolveDangerouslySkip() (bool, error) {
 	form := huh.NewForm(
 		huh.NewGroup(
 			huh.NewConfirm().
-				Title("Skip Claude permission prompts?").
-				Description("Pass --dangerously-skip-permissions to claude. Claude will not ask before running tools.").
+				Title(settings.DangerouslySkipPromptTitle).
+				Description(settings.DangerouslySkipPromptDescription).
 				Affirmative("Yes").
 				Negative("No").
 				Value(&skip),

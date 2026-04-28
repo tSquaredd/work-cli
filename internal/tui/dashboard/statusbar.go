@@ -154,6 +154,7 @@ func (m statusBarModel) keybindView() string {
 			short = append(short, keyStyle.Render("d")+descStyle.Render(":diff"))
 		}
 		short = append(short, keyStyle.Render("n")+descStyle.Render(":new"))
+		short = append(short, keyStyle.Render("s")+descStyle.Render(":settings"))
 		short = append(short, keyStyle.Render("q")+descStyle.Render(":quit"))
 		line = strings.Join(short, sep)
 	}
