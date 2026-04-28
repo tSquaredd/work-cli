@@ -10,24 +10,26 @@ import (
 
 // statusBarModel manages the bottom bar — context-sensitive keybind display.
 type statusBarModel struct {
-	width          int
-	hasTask        bool
-	hasActive      bool
-	hasPR          bool
-	hasComments    bool
-	ghAvailable    bool
-	showDiff       bool
-	showComments   bool
-	showDiffView   bool
-	showNewTask    bool
-	diffViewMode   diffViewMode
-	standalonePR   bool // cursor is on a standalone PR row
-	isMyPR         bool // cursor is on a "Your PRs" row
-	repoHeader     bool // cursor is on a repo header row
-	inRepoLevel    bool // cursor is inside a task's worktree list
-	message        string // transient status message
-	spinner        spinner.Model
-	loading        bool
+	width             int
+	hasTask           bool
+	hasActive         bool
+	hasPR             bool
+	hasComments       bool
+	ghAvailable       bool
+	showDiff          bool
+	showComments      bool
+	showDiffView      bool
+	showNewTask       bool
+	showResumeConfirm bool
+	showSettings      bool
+	diffViewMode      diffViewMode
+	standalonePR      bool   // cursor is on a standalone PR row
+	isMyPR            bool   // cursor is on a "Your PRs" row
+	repoHeader        bool   // cursor is on a repo header row
+	inRepoLevel       bool   // cursor is inside a task's worktree list
+	message           string // transient status message
+	spinner           spinner.Model
+	loading           bool
 }
 
 func newStatusBarModel() statusBarModel {
@@ -59,6 +61,18 @@ func (m statusBarModel) keybindView() string {
 
 	// New task overlay
 	if m.showNewTask {
+		binds = append(binds, keyStyle.Render("Esc")+descStyle.Render(":cancel"))
+		return strings.Join(binds, sep)
+	}
+
+	// Settings overlay
+	if m.showSettings {
+		binds = append(binds, keyStyle.Render("Esc")+descStyle.Render(":cancel"))
+		return strings.Join(binds, sep)
+	}
+
+	// Resume confirm overlay
+	if m.showResumeConfirm {
 		binds = append(binds, keyStyle.Render("Esc")+descStyle.Render(":cancel"))
 		return strings.Join(binds, sep)
 	}
@@ -126,6 +140,7 @@ func (m statusBarModel) keybindView() string {
 	}
 
 	binds = append(binds, keyStyle.Render("n")+descStyle.Render(":new"))
+	binds = append(binds, keyStyle.Render("s")+descStyle.Render(":settings"))
 	binds = append(binds, keyStyle.Render("q")+descStyle.Render(":quit"))
 
 	line := strings.Join(binds, sep)

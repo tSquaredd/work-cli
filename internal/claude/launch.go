@@ -25,6 +25,7 @@ type LaunchConfig struct {
 	PlanMode     bool             // if true, launch with --permission-mode plan
 	ReviewMode   bool             // if true, launch for PR review exploration (no plan mode)
 	ReviewCtx    *ReviewContext   // optional: selected diff lines + PR context
+	DangerouslySkipPermissions bool // if true, launch with --dangerously-skip-permissions
 }
 
 // CommentContext holds context for launching Claude to address a PR review comment.
@@ -291,6 +292,9 @@ func Exec(cfg LaunchConfig) error {
 		args = append(args, "--add-dir", d)
 	}
 	args = append(args, "--append-system-prompt", systemPrompt)
+	if cfg.DangerouslySkipPermissions {
+		args = append(args, "--dangerously-skip-permissions")
+	}
 
 	// Register session PID before exec (PID is preserved across exec)
 	if cfg.Workspace != nil {
@@ -354,6 +358,9 @@ func SpawnInTab(cfg LaunchConfig) error {
 	args = append(args, "--append-system-prompt", fmt.Sprintf("%q", systemPrompt))
 	if cfg.PlanMode {
 		args = append(args, "--permission-mode", "plan")
+	}
+	if cfg.DangerouslySkipPermissions {
+		args = append(args, "--dangerously-skip-permissions")
 	}
 	if cfg.InitialPrompt != "" {
 		args = append(args, fmt.Sprintf("%q", cfg.InitialPrompt))

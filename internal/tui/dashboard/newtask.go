@@ -10,6 +10,7 @@ import (
 	"github.com/charmbracelet/huh"
 	"github.com/charmbracelet/lipgloss"
 	"github.com/tSquaredd/work-cli/internal/service"
+	"github.com/tSquaredd/work-cli/internal/settings"
 	"github.com/tSquaredd/work-cli/internal/ui"
 	"github.com/tSquaredd/work-cli/internal/worktree"
 	"github.com/tSquaredd/work-cli/internal/workspace"
@@ -30,13 +31,15 @@ const (
 	stepPickRepos  newTaskStep = iota
 	stepTaskName
 	stepConfigRepo
+	stepDangerouslySkip
 	stepCreating
 	stepDone
 )
 
 // newTaskModel is the overlay model for the new task wizard.
 type newTaskModel struct {
-	ws *workspace.Workspace
+	ws       *workspace.Workspace
+	settings settings.Settings
 
 	step    newTaskStep
 	form    *huh.Form
@@ -58,6 +61,7 @@ type newTaskModel struct {
 	selectedAliases []string // bound to MultiSelect in stepPickRepos
 	curBranch       string
 	curBaseBranch   string
+	dangerouslySkip bool // bound to Confirm in stepDangerouslySkip
 
 	// Creation results
 	createdDirs []string
@@ -68,18 +72,19 @@ type newTaskModel struct {
 	height int
 }
 
-func newNewTaskModel(ws *workspace.Workspace) *newTaskModel {
-	s := spinner.New()
-	s.Spinner = spinner.MiniDot
-	s.Style = lipgloss.NewStyle().Foreground(ui.ColorPrimary)
+func newNewTaskModel(ws *workspace.Workspace, s settings.Settings) *newTaskModel {
+	sp := spinner.New()
+	sp.Spinner = spinner.MiniDot
+	sp.Style = lipgloss.NewStyle().Foreground(ui.ColorPrimary)
 	return &newTaskModel{
-		ws:      ws,
-		spinner: s,
+		ws:       ws,
+		settings: s,
+		spinner:  sp,
 	}
 }
 
-func newResumeFromPRModel(ws *workspace.Workspace, pr *service.StandalonePR) *newTaskModel {
-	m := newNewTaskModel(ws)
+func newResumeFromPRModel(ws *workspace.Workspace, s settings.Settings, pr *service.StandalonePR) *newTaskModel {
+	m := newNewTaskModel(ws, s)
 	m.resumePR = pr
 	m.taskName = pr.HeadBranch
 	m.selectedAliases = []string{pr.RepoAlias}
@@ -133,6 +138,40 @@ func (m *newTaskModel) initPickRepos() tea.Cmd {
 		WithShowHelp(true)
 
 	return m.form.Init()
+}
+
+// initDangerouslySkip creates the "skip Claude permission prompts?" confirm form.
+func (m *newTaskModel) initDangerouslySkip() tea.Cmd {
+	m.step = stepDangerouslySkip
+	m.form = huh.NewForm(
+		huh.NewGroup(
+			huh.NewConfirm().
+				Title("Skip Claude permission prompts?").
+				Description("Pass --dangerously-skip-permissions to claude. Claude will not ask before running tools.").
+				Affirmative("Yes").
+				Negative("No").
+				Value(&m.dangerouslySkip),
+		),
+	).WithTheme(ui.HuhTheme()).
+		WithWidth(m.formWidth()).
+		WithShowHelp(true)
+	return m.form.Init()
+}
+
+// beginCreating transitions to either the dangerously-skip confirm step or
+// straight to worktree creation, depending on user settings.
+func (m *newTaskModel) beginCreating() tea.Cmd {
+	prompt, value := settings.ResolveDangerouslySkip(m.settings)
+	if prompt {
+		return m.initDangerouslySkip()
+	}
+	m.dangerouslySkip = value
+	m.step = stepCreating
+	m.form = nil
+	return tea.Batch(
+		m.spinner.Tick,
+		createWorktrees(m.ws, m.taskName, m.configs),
+	)
 }
 
 // initTaskName creates the task name input form.
@@ -190,14 +229,9 @@ func (m *newTaskModel) initConfigRepo() tea.Cmd {
 			}
 			break // this repo needs manual config (Fix 1)
 		}
-		// If all repos were auto-configured, jump to creation.
+		// If all repos were auto-configured, jump to creation (or skip-permissions confirm).
 		if m.configIdx >= len(m.selectedRepos) {
-			m.step = stepCreating
-			m.form = nil
-			return tea.Batch(
-				m.spinner.Tick,
-				createWorktrees(m.ws, m.taskName, m.configs),
-			)
+			return m.beginCreating()
 		}
 	}
 
@@ -383,9 +417,7 @@ func (m *newTaskModel) advanceStep() tea.Cmd {
 			if m.configIdx < len(m.selectedRepos) {
 				return m.initConfigRepo()
 			}
-			m.step = stepCreating
-			m.form = nil
-			return tea.Batch(m.spinner.Tick, createWorktrees(m.ws, m.taskName, m.configs))
+			return m.beginCreating()
 		}
 
 		// Handle the non-PR repo branch-switch form.
@@ -402,9 +434,7 @@ func (m *newTaskModel) advanceStep() tea.Cmd {
 			if m.configIdx < len(m.selectedRepos) {
 				return m.initConfigRepo()
 			}
-			m.step = stepCreating
-			m.form = nil
-			return tea.Batch(m.spinner.Tick, createWorktrees(m.ws, m.taskName, m.configs))
+			return m.beginCreating()
 		}
 
 		// Save config for current repo
@@ -436,7 +466,10 @@ func (m *newTaskModel) advanceStep() tea.Cmd {
 			return m.initConfigRepo()
 		}
 
-		// All repos configured — start creation
+		// All repos configured — start creation (or skip-permissions confirm)
+		return m.beginCreating()
+
+	case stepDangerouslySkip:
 		m.step = stepCreating
 		m.form = nil
 		return tea.Batch(
@@ -506,7 +539,7 @@ func (m *newTaskModel) view() string {
 	b.WriteString("\n\n")
 
 	switch m.step {
-	case stepPickRepos, stepTaskName, stepConfigRepo:
+	case stepPickRepos, stepTaskName, stepConfigRepo, stepDangerouslySkip:
 		if m.form != nil {
 			b.WriteString(m.form.View())
 		}

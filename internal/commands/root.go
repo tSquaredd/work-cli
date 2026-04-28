@@ -6,15 +6,17 @@ import (
 	"strings"
 
 	tea "github.com/charmbracelet/bubbletea"
+	"github.com/charmbracelet/huh"
 	"github.com/spf13/cobra"
 	"github.com/tSquaredd/work-cli/internal/claude"
-	"github.com/tSquaredd/work-cli/internal/ui"
 	"github.com/tSquaredd/work-cli/internal/github"
 	"github.com/tSquaredd/work-cli/internal/prstate"
 	"github.com/tSquaredd/work-cli/internal/service"
 	"github.com/tSquaredd/work-cli/internal/session"
+	"github.com/tSquaredd/work-cli/internal/settings"
 	"github.com/tSquaredd/work-cli/internal/tui"
 	"github.com/tSquaredd/work-cli/internal/tui/dashboard"
+	"github.com/tSquaredd/work-cli/internal/ui"
 	"github.com/tSquaredd/work-cli/internal/workspace"
 )
 
@@ -98,14 +100,19 @@ var rootCmd = &cobra.Command{
 				ctx := m.DiffViewClaudeContext()
 				if ctx != nil {
 					isMine := m.DiffViewIsMine()
+					skip, ok := promptDangerouslySkip()
+					if !ok {
+						continue
+					}
 					cfg := claude.LaunchConfig{
-						Workspace:     ws,
-						TaskName:      fmt.Sprintf("review-pr-%d", ctx.PRNumber),
-						Dirs:          []string{ctx.RepoDir},
-						ReviewMode:    true,
-						ReviewCtx:     ctx,
-						InitialPrompt: claude.BuildReviewPrompt(ctx),
-						PlanMode:      isMine,
+						Workspace:                  ws,
+						TaskName:                   fmt.Sprintf("review-pr-%d", ctx.PRNumber),
+						Dirs:                       []string{ctx.RepoDir},
+						ReviewMode:                 true,
+						ReviewCtx:                  ctx,
+						InitialPrompt:              claude.BuildReviewPrompt(ctx),
+						PlanMode:                   isMine,
+						DangerouslySkipPermissions: skip,
 					}
 					_ = claude.SpawnInTab(cfg)
 				}
@@ -114,13 +121,18 @@ var rootCmd = &cobra.Command{
 				taskName := m.CommentTaskName()
 				dir := m.CommentWorktreeDir()
 				if ctx != nil && taskName != "" && dir != "" {
+					skip, ok := promptDangerouslySkip()
+					if !ok {
+						continue
+					}
 					cfg := claude.LaunchConfig{
-						Workspace:     ws,
-						TaskName:      taskName,
-						Dirs:          []string{dir},
-						Comment:       ctx,
-						InitialPrompt: claude.BuildCommentPrompt(ctx),
-						PlanMode:      true,
+						Workspace:                  ws,
+						TaskName:                   taskName,
+						Dirs:                       []string{dir},
+						Comment:                    ctx,
+						InitialPrompt:              claude.BuildCommentPrompt(ctx),
+						PlanMode:                   true,
+						DangerouslySkipPermissions: skip,
 					}
 					_ = claude.SpawnInTab(cfg)
 				}
@@ -152,4 +164,33 @@ func Execute() error {
 		return err
 	}
 	return nil
+}
+
+// promptDangerouslySkip resolves the --dangerously-skip-permissions decision for
+// inline (non-Bubble-Tea) launch sites. It honors the persisted setting:
+//   - "always" → returns (true, true) without prompting
+//   - "never"  → returns (false, true) without prompting
+//   - "ask"    → presents a huh.Confirm. Esc returns (false, false) so callers
+//     can abort the launch.
+func promptDangerouslySkip() (skip bool, ok bool) {
+	s, _ := settings.Load()
+	prompt, value := settings.ResolveDangerouslySkip(s)
+	if !prompt {
+		return value, true
+	}
+
+	form := huh.NewForm(
+		huh.NewGroup(
+			huh.NewConfirm().
+				Title("Skip Claude permission prompts?").
+				Description("Pass --dangerously-skip-permissions to claude. Claude will not ask before running tools.").
+				Affirmative("Yes").
+				Negative("No").
+				Value(&skip),
+		),
+	).WithTheme(ui.HuhTheme())
+	if err := form.Run(); err != nil {
+		return false, false
+	}
+	return skip, true
 }

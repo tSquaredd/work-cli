@@ -9,10 +9,12 @@ import (
 
 	"github.com/charmbracelet/bubbles/spinner"
 	tea "github.com/charmbracelet/bubbletea"
+	"github.com/charmbracelet/huh"
 	"github.com/charmbracelet/lipgloss"
 	"github.com/tSquaredd/work-cli/internal/claude"
 	"github.com/tSquaredd/work-cli/internal/service"
 	"github.com/tSquaredd/work-cli/internal/session"
+	"github.com/tSquaredd/work-cli/internal/settings"
 	"github.com/tSquaredd/work-cli/internal/ui"
 	"github.com/tSquaredd/work-cli/internal/worktree"
 )
@@ -41,6 +43,16 @@ type Model struct {
 	// New task overlay
 	newTaskView  *newTaskModel
 	showNewTask  bool
+
+	// Resume confirm overlay (--dangerously-skip-permissions)
+	showResumeConfirm     bool
+	resumeConfirmTask     *service.TaskView
+	resumeConfirmForm     *huh.Form
+	resumeDangerouslySkip bool
+
+	// Settings overlay
+	showSettings bool
+	settingsView *settingsModel
 
 	// Standalone PRs
 	myPRs    []service.StandalonePR
@@ -92,6 +104,10 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		if m.showNewTask {
 			m.newTaskView.width = msg.Width
 			m.newTaskView.height = msg.Height
+		}
+		if m.showSettings && m.settingsView != nil {
+			m.settingsView.width = msg.Width
+			m.settingsView.height = msg.Height
 		}
 		return m, nil
 
@@ -239,6 +255,24 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.updateStatusBar()
 		return m, nil
 
+	case settingsSavedMsg:
+		if err := settings.Save(msg.settings); err != nil {
+			m.statusBar.message = fmt.Sprintf("Error saving settings: %s", err)
+		} else {
+			m.svc.RefreshSettings()
+			m.statusBar.message = "Settings saved"
+		}
+		m.showSettings = false
+		m.settingsView = nil
+		m.updateStatusBar()
+		return m, clearMessageCmd()
+
+	case settingsCancelMsg:
+		m.showSettings = false
+		m.settingsView = nil
+		m.updateStatusBar()
+		return m, nil
+
 	case newTaskCreatedMsg:
 		m.newTaskView.step = stepDone
 		m.newTaskView.createdDirs = msg.dirs
@@ -261,6 +295,13 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m, cmd
 	}
 
+	// Forward messages to resume confirm overlay when active
+	if m.showResumeConfirm && m.resumeConfirmForm != nil {
+		model, cmd := m.resumeConfirmForm.Update(msg)
+		m.resumeConfirmForm = model.(*huh.Form)
+		return m, cmd
+	}
+
 	return m, nil
 }
 
@@ -270,6 +311,16 @@ func (m Model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	// Handle new task overlay
 	if m.showNewTask {
 		return m.handleNewTaskKey(msg)
+	}
+
+	// Handle resume confirm overlay
+	if m.showResumeConfirm {
+		return m.handleResumeConfirmKey(msg)
+	}
+
+	// Handle settings overlay
+	if m.showSettings {
+		return m.handleSettingsKey(msg)
 	}
 
 	// Handle confirmation mode
@@ -375,9 +426,54 @@ func (m Model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 
 	case "m":
 		return m.handleComments()
+
+	case "s":
+		return m.startSettings()
 	}
 
 	return m, nil
+}
+
+// handleResumeConfirmKey forwards keys to the resume confirm form, then advances
+// or cancels the resume flow based on the form state.
+func (m Model) handleResumeConfirmKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
+	if msg.String() == "esc" {
+		m.showResumeConfirm = false
+		m.resumeConfirmTask = nil
+		m.resumeConfirmForm = nil
+		m.updateStatusBar()
+		return m, nil
+	}
+
+	if m.resumeConfirmForm == nil {
+		m.showResumeConfirm = false
+		m.updateStatusBar()
+		return m, nil
+	}
+
+	model, cmd := m.resumeConfirmForm.Update(msg)
+	m.resumeConfirmForm = model.(*huh.Form)
+
+	switch m.resumeConfirmForm.State {
+	case huh.StateAborted:
+		m.showResumeConfirm = false
+		m.resumeConfirmTask = nil
+		m.resumeConfirmForm = nil
+		m.updateStatusBar()
+		return m, nil
+	case huh.StateCompleted:
+		sel := m.resumeConfirmTask
+		m.showResumeConfirm = false
+		m.resumeConfirmTask = nil
+		m.resumeConfirmForm = nil
+		m.updateStatusBar()
+		if sel == nil {
+			return m, nil
+		}
+		return m.resumeTask(sel)
+	}
+
+	return m, cmd
 }
 
 func (m Model) handleStandalonePRKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
@@ -617,7 +713,39 @@ func (m Model) handleResume() (tea.Model, tea.Cmd) {
 	if sel == nil {
 		return m, nil
 	}
-	return m.resumeTask(sel)
+	return m.startResumeFlow(sel)
+}
+
+// startResumeFlow either launches the resume confirm overlay (when settings
+// require asking) or proceeds straight to resumeTask. handleAttach short-circuits
+// when a session is already active — no Claude is spawned in that case, so no
+// confirm is needed.
+func (m Model) startResumeFlow(sel *service.TaskView) (tea.Model, tea.Cmd) {
+	if sel.HasSession {
+		return m.handleAttach()
+	}
+
+	prompt, value := settings.ResolveDangerouslySkip(m.svc.Settings)
+	if !prompt {
+		m.resumeDangerouslySkip = value
+		return m.resumeTask(sel)
+	}
+
+	m.resumeDangerouslySkip = false
+	m.resumeConfirmTask = sel
+	m.resumeConfirmForm = huh.NewForm(
+		huh.NewGroup(
+			huh.NewConfirm().
+				Title("Skip Claude permission prompts?").
+				Description("Pass --dangerously-skip-permissions to claude. Claude will not ask before running tools.").
+				Affirmative("Yes").
+				Negative("No").
+				Value(&m.resumeDangerouslySkip),
+		),
+	).WithTheme(ui.HuhTheme()).WithShowHelp(true)
+	m.showResumeConfirm = true
+	m.updateStatusBar()
+	return m, m.resumeConfirmForm.Init()
 }
 
 func (m Model) resumeTask(sel *service.TaskView) (tea.Model, tea.Cmd) {
@@ -634,9 +762,10 @@ func (m Model) resumeTask(sel *service.TaskView) (tea.Model, tea.Cmd) {
 
 	// Prepare claude files
 	cfg := claude.LaunchConfig{
-		Workspace: m.svc.Workspace,
-		TaskName:  sel.Name,
-		Dirs:      dirs,
+		Workspace:                  m.svc.Workspace,
+		TaskName:                   sel.Name,
+		Dirs:                       dirs,
+		DangerouslySkipPermissions: m.resumeDangerouslySkip,
 	}
 
 	if err := claude.Prepare(cfg); err != nil {
@@ -666,6 +795,9 @@ func (m Model) resumeTask(sel *service.TaskView) (tea.Model, tea.Cmd) {
 		args = append(args, "--add-dir", d)
 	}
 	args = append(args, "--append-system-prompt", fmt.Sprintf("%q", systemPrompt))
+	if cfg.DangerouslySkipPermissions {
+		args = append(args, "--dangerously-skip-permissions")
+	}
 	cmdParts = append(cmdParts, strings.Join(args, " "))
 
 	command := strings.Join(cmdParts, " && ")
@@ -722,9 +854,9 @@ func (m Model) handleResumeFromPR() (tea.Model, tea.Cmd) {
 		return m, nil
 	}
 
-	// Case 1: matching task exists — resume it directly
+	// Case 1: matching task exists — resume it directly (with confirm overlay if needed)
 	if task := m.findTaskForPR(pr); task != nil {
-		return m.resumeTask(task)
+		return m.startResumeFlow(task)
 	}
 
 	// Case 2: no match — launch resume-from-PR wizard
@@ -732,7 +864,7 @@ func (m Model) handleResumeFromPR() (tea.Model, tea.Cmd) {
 }
 
 func (m Model) startResumeFromPR(pr *service.StandalonePR) (tea.Model, tea.Cmd) {
-	m.newTaskView = newResumeFromPRModel(m.svc.Workspace, pr)
+	m.newTaskView = newResumeFromPRModel(m.svc.Workspace, m.svc.Settings, pr)
 	m.newTaskView.width = m.width
 	m.newTaskView.height = m.height
 	m.showNewTask = true
@@ -1328,6 +1460,8 @@ func (m *Model) updateStatusBar() {
 	m.statusBar.showComments = m.showComments
 	m.statusBar.showDiffView = m.showDiffView
 	m.statusBar.showNewTask = m.showNewTask
+	m.statusBar.showResumeConfirm = m.showResumeConfirm
+	m.statusBar.showSettings = m.showSettings
 	m.statusBar.hasPR = sel != nil && sel.HasPRs
 	m.statusBar.hasComments = sel != nil && m.hasComments(sel)
 	m.statusBar.ghAvailable = m.svc.GHAvailable
@@ -1363,6 +1497,16 @@ func (m Model) View() string {
 	// Fullscreen new task overlay
 	if m.showNewTask {
 		return m.newTaskView.view()
+	}
+
+	// Fullscreen resume confirm overlay
+	if m.showResumeConfirm {
+		return m.resumeConfirmView()
+	}
+
+	// Fullscreen settings overlay
+	if m.showSettings && m.settingsView != nil {
+		return m.settingsView.view()
 	}
 
 	// Fullscreen diff viewer overlay
@@ -1472,9 +1616,58 @@ func tickCmd() tea.Cmd {
 	})
 }
 
+// startSettings opens the settings overlay.
+func (m Model) startSettings() (tea.Model, tea.Cmd) {
+	m.settingsView = newSettingsModel(m.svc.Settings)
+	m.settingsView.width = m.width
+	m.settingsView.height = m.height
+	m.showSettings = true
+	m.updateStatusBar()
+	if m.settingsView.form != nil {
+		return m, m.settingsView.form.Init()
+	}
+	return m, nil
+}
+
+// handleSettingsKey forwards keys to the settings overlay form.
+func (m Model) handleSettingsKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
+	if m.settingsView == nil {
+		m.showSettings = false
+		m.updateStatusBar()
+		return m, nil
+	}
+	cmd := m.settingsView.update(msg)
+	return m, cmd
+}
+
+// resumeConfirmView renders the resume-with-skip-permissions confirm overlay.
+func (m Model) resumeConfirmView() string {
+	titleStyle := lipgloss.NewStyle().Foreground(ui.ColorPrimary).Bold(true)
+	dimStyle := lipgloss.NewStyle().Foreground(ui.ColorMuted)
+
+	var b strings.Builder
+	taskName := ""
+	if m.resumeConfirmTask != nil {
+		taskName = m.resumeConfirmTask.Name
+	}
+	b.WriteString(titleStyle.Render("Resume " + taskName))
+	b.WriteString("\n")
+	b.WriteString(dimStyle.Render(strings.Repeat("─", min(m.width, 60))))
+	b.WriteString("\n\n")
+	if m.resumeConfirmForm != nil {
+		b.WriteString(m.resumeConfirmForm.View())
+	}
+
+	return lipgloss.NewStyle().
+		Width(m.width).
+		Height(m.height).
+		Padding(2, 4).
+		Render(b.String())
+}
+
 // startNewTask opens the new task wizard overlay.
 func (m Model) startNewTask() (tea.Model, tea.Cmd) {
-	m.newTaskView = newNewTaskModel(m.svc.Workspace)
+	m.newTaskView = newNewTaskModel(m.svc.Workspace, m.svc.Settings)
 	m.newTaskView.width = m.width
 	m.newTaskView.height = m.height
 	m.showNewTask = true
@@ -1503,9 +1696,10 @@ func (m Model) launchNewTask() (tea.Model, tea.Cmd) {
 
 	// Prepare claude files
 	cfg := claude.LaunchConfig{
-		Workspace: m.svc.Workspace,
-		TaskName:  taskName,
-		Dirs:      dirs,
+		Workspace:                  m.svc.Workspace,
+		TaskName:                   taskName,
+		Dirs:                       dirs,
+		DangerouslySkipPermissions: m.newTaskView.dangerouslySkip,
 	}
 
 	if err := claude.Prepare(cfg); err != nil {
@@ -1539,6 +1733,9 @@ func (m Model) launchNewTask() (tea.Model, tea.Cmd) {
 		args = append(args, "--add-dir", d)
 	}
 	args = append(args, "--append-system-prompt", fmt.Sprintf("%q", systemPrompt))
+	if cfg.DangerouslySkipPermissions {
+		args = append(args, "--dangerously-skip-permissions")
+	}
 	cmdParts = append(cmdParts, strings.Join(args, " "))
 
 	command := strings.Join(cmdParts, " && ")

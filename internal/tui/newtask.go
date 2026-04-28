@@ -7,6 +7,7 @@ import (
 
 	"github.com/charmbracelet/huh"
 	"github.com/tSquaredd/work-cli/internal/claude"
+	"github.com/tSquaredd/work-cli/internal/settings"
 	"github.com/tSquaredd/work-cli/internal/ui"
 	"github.com/tSquaredd/work-cli/internal/worktree"
 	"github.com/tSquaredd/work-cli/internal/workspace"
@@ -125,15 +126,49 @@ func newTaskWizard(ws *workspace.Workspace, launch func(claude.LaunchConfig) err
 		return fmt.Errorf("no worktrees created")
 	}
 
+	// Resolve --dangerously-skip-permissions per user settings.
+	skipPerms, err := resolveDangerouslySkip()
+	if err != nil {
+		return nil // user cancelled
+	}
+
 	fmt.Println()
 	fmt.Println(ui.Section("Launching Claude..."))
 	fmt.Println()
 
 	return launch(claude.LaunchConfig{
-		Workspace: ws,
-		TaskName:  taskName,
-		Dirs:      dirs,
+		Workspace:                  ws,
+		TaskName:                   taskName,
+		Dirs:                       dirs,
+		DangerouslySkipPermissions: skipPerms,
 	})
+}
+
+// resolveDangerouslySkip checks the persisted setting and prompts the user when
+// it is "ask". Returns the boolean to pass into LaunchConfig. An error from this
+// function indicates the user cancelled the prompt.
+func resolveDangerouslySkip() (bool, error) {
+	s, _ := settings.Load()
+	prompt, value := settings.ResolveDangerouslySkip(s)
+	if !prompt {
+		return value, nil
+	}
+
+	var skip bool
+	form := huh.NewForm(
+		huh.NewGroup(
+			huh.NewConfirm().
+				Title("Skip Claude permission prompts?").
+				Description("Pass --dangerously-skip-permissions to claude. Claude will not ask before running tools.").
+				Affirmative("Yes").
+				Negative("No").
+				Value(&skip),
+		),
+	).WithTheme(ui.HuhTheme())
+	if err := form.Run(); err != nil {
+		return false, err
+	}
+	return skip, nil
 }
 
 func pickRepos(ws *workspace.Workspace) ([]workspace.Repo, error) {

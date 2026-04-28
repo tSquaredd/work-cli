@@ -3,6 +3,7 @@ package service
 import (
 	"github.com/tSquaredd/work-cli/internal/prstate"
 	"github.com/tSquaredd/work-cli/internal/session"
+	"github.com/tSquaredd/work-cli/internal/settings"
 	"github.com/tSquaredd/work-cli/internal/workspace"
 	"github.com/tSquaredd/work-cli/internal/worktree"
 )
@@ -14,16 +15,26 @@ type WorkService struct {
 	Tracker     *session.Tracker
 	PRStore     *prstate.Store
 	GHAvailable bool
+	Settings    settings.Settings
 
 	currentUser string // cached GitHub username, fetched once on first use
 }
 
 // New creates a WorkService for the given workspace.
 func New(ws *workspace.Workspace, tracker *session.Tracker) *WorkService {
+	s, _ := settings.Load() // Default() is returned on error
 	return &WorkService{
 		Workspace: ws,
 		Tracker:   tracker,
+		Settings:  s,
 	}
+}
+
+// RefreshSettings reloads user settings from disk. Called by the dashboard
+// after the settings overlay saves.
+func (s *WorkService) RefreshSettings() {
+	loaded, _ := settings.Load()
+	s.Settings = loaded
 }
 
 // Tasks returns all tasks with enriched view data including session status.
